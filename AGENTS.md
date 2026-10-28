@@ -1,7 +1,7 @@
 # AGENTS.md — Nassaq (نسّق)
 
 **Applies to:** repository root and all descendants.  
-**Current work mode:** **Phase 0 feasibility complete; Phase 1 and later implementation must be phase-scoped and separately authorized.** See `docs/PHASE_0_REPORT.md` for evidence and release follow-ups.
+**Current work mode:** **Phase 0 feasibility complete; Phase 1 and later implementation must be phase-scoped and separately authorized.** See `docs/XLSX_WORKER_FEASIBILITY.md` for evidence and release follow-ups.
 **Read before editing:** all relevant `/docs` files, especially `04_DATA_INTEGRITY_AND_VALIDATION.md` and `08_IMPLEMENTATION_PLAN.md`.
 
 ## 1. Mission and immutable product boundaries
@@ -85,7 +85,7 @@ Before a phase is marked Done: typecheck, unit/integration fixtures, targeted Pl
 
 ## 9. Phase discipline and communication
 
-1. Inspect repo and git status; **preserve existing implementation**. See `docs/PHASE_0_REPORT.md` for initial inspection and current feasibility evidence; verify the current state rather than assuming it is unchanged.
+1. Inspect repo and git status; **preserve existing implementation**. See `docs/XLSX_WORKER_FEASIBILITY.md` for initial inspection and current feasibility evidence; verify the current state rather than assuming it is unchanged.
 2. Work on **only the phase explicitly authorized** in `08_IMPLEMENTATION_PLAN.md`; read phase dependencies and acceptance gates first.
 3. If a decision is blocked (e.g. ExcelJS browser bug, empty string not preserved, risk discovered), stop and report it rather than workaround by losing data or bypassing tests.
 4. Write/update tests with each behavior. No unsupported dependencies or architectural rewrites.
@@ -119,5 +119,5 @@ Use available skills when their scope matches the authorized task:
 - Plan a small set of coherent commit checkpoints before a multi-step implementation. Group changes by purpose, not by file type or tool call: keep a behavior, its regression tests and directly related documentation together. Separate independent tooling, behavior and documentation-only changes when each group is meaningful on its own. Do not defer all unrelated work into one end-of-phase commit or create noisy commits for every small edit.
 - Branch/commit workflow does not expand phase scope. Creating commits requires explicit user authorization for the task or phase; a request to edit these workflow rules alone does not authorize committing existing work. Once authorized, commit at verified checkpoints throughout the work and report the commit hashes and remaining uncommitted changes.
 - Before each commit, inspect `git status`, `git diff`, `git diff --cached` and `git log --oneline -10`; run checks relevant to that checkpoint. Stage only intended paths or hunks, never blindly stage the entire workspace. Exclude secrets, user data, local skills, dependencies, build output and generated test reports; retain application package lockfiles and intentional synthetic fixtures.
-- Follow the existing commit-message style; for a new repository use concise Conventional Commits, e.g. `test(phase0): verify worker XLSX round-trip` or `docs: define agent Git workflow`. Each commit must be reviewable and describe its purpose. Fix rejected hooks or failed checks and create a new commit; do not bypass hooks or amend/rewrite history without explicit authorization.
+- Follow the existing commit-message style; for a new repository use concise Conventional Commits, e.g. `test(feasibility): verify worker XLSX round-trip` or `docs: define agent Git workflow`. Each commit must be reviewable and describe its purpose. Fix rejected hooks or failed checks and create a new commit; do not bypass hooks or amend/rewrite history without explicit authorization.
 - Push, publish branches, open PRs, merge, tag and release only when explicitly requested. Never force-push or change Git identity/configuration without authorization. Use `gh` for GitHub operations. Before opening a PR, review all included commits, the base-branch diff and remote tracking; summarize scope, checks, integrity/privacy impact and remaining risks, then return the PR URL. Keep each PR phase-scoped and await approval before starting the next phase.

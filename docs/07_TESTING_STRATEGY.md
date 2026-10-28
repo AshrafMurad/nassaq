@@ -112,9 +112,9 @@ A proposed minimal CI job on each PR: clean install with lockfile; typecheck; li
 
 **Note:** Library behavior for zero-length text cells, worker XLSX load and workbook representation is validated in the phase-0 spike; if the selected library fails exact requirements, development does not proceed until the adapter/library decision is revised in all docs.
 
-**Phase 0 evidence:** `tests/phase0/` passed 5 Node integration cases and 15
+**Phase 0 evidence:** `tests/feasibility/xlsx-worker/` passed 5 Node integration cases and 15
 Chromium/Firefox/WebKit cases, including exact downloaded text/empty-cell values,
 ZIP CRC/XML inspection, offline active-worker processing and large synthetic
-fixtures. Compact results are in `tests/phase0/evidence/`; see `PHASE_0_REPORT.md`.
+fixtures. Compact results are in `tests/feasibility/xlsx-worker/evidence/`; see `XLSX_WORKER_FEASIBILITY.md`.
 These feasibility tests do not replace later product-flow tests, real Chrome/Edge/
 Safari and Excel/LibreOffice QA, memory profiling, or release privacy/CSP checks.
