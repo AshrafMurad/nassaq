@@ -1,0 +1,139 @@
+{
+  "cases": [
+    {
+      "test": "small: static worker → verified transfer → local download",
+      "browser": "chromium",
+      "status": "passed",
+      "elapsedMs": 39.29999999701977,
+      "ticks": 3,
+      "outputBytes": 6883,
+      "inputBytes": 360,
+      "browserVersion": "156.0.8078.4"
+    },
+    {
+      "test": "max: static worker → verified transfer → local download",
+      "browser": "chromium",
+      "status": "passed",
+      "elapsedMs": 1228.7999999970198,
+      "ticks": 116,
+      "outputBytes": 586361,
+      "inputBytes": 1798949,
+      "browserVersion": "156.0.8078.4"
+    },
+    {
+      "test": "wide: static worker → verified transfer → local download",
+      "browser": "chromium",
+      "status": "passed",
+      "elapsedMs": 1186.5,
+      "ticks": 112,
+      "outputBytes": 571458,
+      "inputBytes": 1826789,
+      "browserVersion": "156.0.8078.4"
+    },
+    {
+      "test": "long: static worker → verified transfer → local download",
+      "browser": "chromium",
+      "status": "passed",
+      "elapsedMs": 143.5,
+      "ticks": 3,
+      "outputBytes": 9761,
+      "inputBytes": 2064580,
+      "browserVersion": "156.0.8078.4"
+    },
+    {
+      "test": "browser decoder availability and fail-closed invalid bytes",
+      "browser": "chromium",
+      "status": "passed"
+    },
+    {
+      "test": "small: static worker → verified transfer → local download",
+      "browser": "firefox",
+      "status": "passed",
+      "elapsedMs": 59,
+      "ticks": 5,
+      "outputBytes": 6883,
+      "inputBytes": 360,
+      "browserVersion": "157.0"
+    },
+    {
+      "test": "max: static worker → verified transfer → local download",
+      "browser": "firefox",
+      "status": "passed",
+      "elapsedMs": 1756,
+      "ticks": 173,
+      "outputBytes": 586360,
+      "inputBytes": 1798949,
+      "browserVersion": "157.0"
+    },
+    {
+      "test": "wide: static worker → verified transfer → local download",
+      "browser": "firefox",
+      "status": "passed",
+      "elapsedMs": 1684,
+      "ticks": 168,
+      "outputBytes": 571457,
+      "inputBytes": 1826789,
+      "browserVersion": "157.0"
+    },
+    {
+      "test": "long: static worker → verified transfer → local download",
+      "browser": "firefox",
+      "status": "passed",
+      "elapsedMs": 191,
+      "ticks": 19,
+      "outputBytes": 9760,
+      "inputBytes": 2064580,
+      "browserVersion": "157.0"
+    },
+    {
+      "test": "browser decoder availability and fail-closed invalid bytes",
+      "browser": "firefox",
+      "status": "passed"
+    },
+    {
+      "test": "small: static worker → verified transfer → local download",
+      "browser": "webkit",
+      "status": "passed",
+      "elapsedMs": 27,
+      "ticks": 2,
+      "outputBytes": 6883,
+      "inputBytes": 360,
+      "browserVersion": "27.2"
+    },
+    {
+      "test": "max: static worker → verified transfer → local download",
+      "browser": "webkit",
+      "status": "passed",
+      "elapsedMs": 1416,
+      "ticks": 91,
+      "outputBytes": 586361,
+      "inputBytes": 1798949,
+      "browserVersion": "27.2"
+    },
+    {
+      "test": "wide: static worker → verified transfer → local download",
+      "browser": "webkit",
+      "status": "passed",
+      "elapsedMs": 1391,
+      "ticks": 91,
+      "outputBytes": 571457,
+      "inputBytes": 1826789,
+      "browserVersion": "27.2"
+    },
+    {
+      "test": "long: static worker → verified transfer → local download",
+      "browser": "webkit",
+      "status": "passed",
+      "elapsedMs": 129,
+      "ticks": 8,
+      "outputBytes": 9760,
+      "inputBytes": 2064580,
+      "browserVersion": "27.2"
+    },
+    {
+      "test": "browser decoder availability and fail-closed invalid bytes",
+      "browser": "webkit",
+      "status": "passed"
+    }
+  ]
+}

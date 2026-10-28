@@ -1,0 +1,32 @@
+{
+  "name": "nassaq-phase0-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": "^24.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "test": "vitest run probe.test.ts",
+    "test:e2e": "playwright test",
+    "inventory": "node scripts/inventory.mjs",
+    "evidence:bundle": "node scripts/bundle-evidence.mjs",
+    "evidence:browsers": "node scripts/browser-evidence.mjs"
+  },
+  "dependencies": {
+    "exceljs": "4.4.0",
+    "papaparse": "5.7.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "26.6.5",
+    "@types/papaparse": "5.5.2",
+    "jszip": "3.10.2",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
+  }
+}
