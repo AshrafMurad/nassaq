@@ -1,4 +1,4 @@
-# Phase 0 — feasibility complete
+# XLSX worker feasibility report
 
 **Date:** 2026-10-28 · **Verdict:** Phase 0 passed; technically ready for Phase 1,
 which requires separate authorization. No product UI or later-phase implementation
@@ -10,7 +10,7 @@ Read `AGENTS.md` and all nine numbered planning documents before implementation.
 The initial directory contained those documents only: no application, manifest,
 lockfile, tests or Git repository. Existing documents were preserved.
 
-The experiment is isolated in `tests/phase0/`, with its own private package,
+The experiment is isolated in `tests/feasibility/xlsx-worker/`, with its own private package,
 strict TypeScript configuration and lockfile. All fixtures are synthetic. There
 is no real-file picker, application UI, backend, database, upload or persistence.
 
@@ -66,11 +66,11 @@ and any generated shadcn components belong to Phase 1.
 
 Compact, reproducible artifacts:
 
-- `tests/phase0/evidence/browser-results.json`: per-case verdicts, browser versions,
+- `tests/feasibility/xlsx-worker/evidence/browser-results.json`: per-case verdicts, browser versions,
   input/output bytes, worker write/load/verify timing and main-thread timer ticks.
-- `tests/phase0/evidence/dependency-inventory.json`: resolved versions, declared
+- `tests/feasibility/xlsx-worker/evidence/dependency-inventory.json`: resolved versions, declared
   licenses, registry URLs, integrity presence and install-script flags.
-- `tests/phase0/evidence/bundle-evidence.json`: minified browser sourcemap dependency
+- `tests/feasibility/xlsx-worker/evidence/bundle-evidence.json`: minified browser sourcemap dependency
   paths, inspected exclusions, build asset sizes and gzip sizes.
 
 The small fixture also covers long IDs, date-shaped tokens, Arabic-Indic digits,

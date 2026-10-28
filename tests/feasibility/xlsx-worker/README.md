@@ -1,8 +1,8 @@
-# Phase 0 isolated feasibility experiment
+# XLSX worker feasibility harness
 
 This directory is a disposable technical harness, not Nassaq application source.
 There is no application UI, file picker, backend, or persistence. All input is synthetic.
-See `../../docs/PHASE_0_REPORT.md` for completed feasibility evidence and release follow-ups.
+See `../../../docs/XLSX_WORKER_FEASIBILITY.md` for completed feasibility evidence and release follow-ups.
 
 Run commands from this directory:
 

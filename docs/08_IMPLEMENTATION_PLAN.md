@@ -28,7 +28,7 @@ Each phase owns a coherent working milestone. Do **not** add features from later
 
 **Objective:** eliminate high-risk unknowns before feature development.
 
-**Execution evidence:** see [Phase 0 report](PHASE_0_REPORT.md). Phase 0 **passed**:
+**Execution evidence:** see the [XLSX worker feasibility report](XLSX_WORKER_FEASIBILITY.md). Phase 0 **passed**:
 strict typecheck, 5 Node integration tests, static production build and 15 browser
 checks across Chromium/Firefox/WebKit, including downloaded-XLSX comparison.
 The audit has 2 reviewed moderate findings and no high/critical findings. ExcelJS
