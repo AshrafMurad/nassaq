@@ -50,6 +50,22 @@ remains selected; Phase 1 is technically ready but requires separate authorizati
 
 **Objective:** minimal AR/EN accessible shell with no backend.
 
+**Execution evidence (2026-10-28, branch `feat/phase-1-shell`):** Phase 1
+**passed**: strict `npm run typecheck`, production `vite build` (static
+`dist/`), and 21 Playwright checks (7 cases × Chromium/Firefox/WebKit) covering
+Arabic-default RTL, EN toggle with LTR/`lang`/`title` sync, keyboard-reachable
+labelled file input, synthetic drag/drop file details with `bdi` isolation,
+same-file reselection after reset, and zero non-app network requests. Stack:
+Vite 8.3.5, React 19.3.1, TypeScript 7.0.2 (TS7 removed `baseUrl`; alias via
+`paths` only), Tailwind 4.3.3, i18next 26.5.11 + react-i18next 17.1.9,
+lucide-react 1.62.0 (brand icons removed upstream; the header GitHub mark is
+an authored inline SVG). shadcn registry `Button` generated via
+`shadcn@4.23.0 add`, adding `cn@0.5.0` (MIT), `radix-ui@1.8.1` (MIT) and
+`class-variance-authority@0.7.1` (Apache-2.0); `npm audit`: 0 vulnerabilities.
+File size/type enforcement is intentionally deferred to Phase 2 gating; the
+dropzone only displays the caps. Owner visual review of the rendered AR/EN
+shell is still recommended.
+
 **Tasks:** Vite React TS strict; Tailwind v4; limited shadcn/ui primitives; react-i18next Arabic default; `dir`/`lang` switch; accessible `FileDropzone`, AppShell; build scripts; static-only deployment config. Avoid router unless needed for a legal/privacy page (simple in-page section is enough).
 
 **Expected modules:** `src/main.tsx`, `src/app/App.tsx`, `src/app/providers.tsx`, `src/i18n/*`, `src/components/import/FileDropzone.tsx`, `src/styles/*`, `vite.config.ts`, `package.json`, configs.

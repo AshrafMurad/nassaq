@@ -93,7 +93,7 @@ ExcelJS builds XLSX in memory, then loads it again for verification; peak usage 
 
 Vite bundles worker with `new Worker(new URL('./import.worker.ts', import.meta.url), { type: 'module' })`. Probe browser builds during phase 0. No fallback that runs unbounded workbook operations on UI thread; unsupported browsers get a clear compatibility error.
 
-## 6. Folder structure (target; not generated source yet)
+## 6. Folder structure (app shell realized in Phase 1; worker/domain/lib pending later phases)
 
 ```text
 nassaq/
