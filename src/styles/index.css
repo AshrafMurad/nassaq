@@ -2,27 +2,178 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "Archivo";
+  src: url("/fonts/archivo-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/manrope-latin.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Noto Sans Arabic";
+  src: url("/fonts/noto-sans-arabic.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-0891, U+0897-08E1,
+    U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FE74, U+FE76-FEFC, U+102E0-102FB, U+10E60-10E7E,
+    U+10EC2-10EC7, U+10EC9-10EEE, U+10EF0-10EFF, U+1EE00-1EEFF;
+}
+
 :root {
-  --background: oklch(0.985 0.002 106);
-  --foreground: oklch(0.245 0.006 86);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.245 0.006 86);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.245 0.006 86);
-  --primary: oklch(0.48 0.075 192);
-  --primary-foreground: oklch(0.985 0.01 192);
-  --secondary: oklch(0.962 0.004 106);
-  --secondary-foreground: oklch(0.32 0.01 86);
-  --muted: oklch(0.962 0.004 106);
-  --muted-foreground: oklch(0.5 0.012 86);
-  --accent: oklch(0.955 0.022 192);
-  --accent-foreground: oklch(0.36 0.065 192);
-  --destructive: oklch(0.55 0.21 27);
-  --destructive-foreground: oklch(0.985 0.01 192);
-  --border: oklch(0.916 0.005 90);
-  --input: oklch(0.916 0.005 90);
-  --ring: oklch(0.55 0.085 192);
+  --yellow: #ffe17c;
+  --charcoal: #171e19;
+  --sage: #b7c6c2;
+  --background: var(--yellow);
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: var(--sage);
+  --secondary-foreground: #000000;
+  --muted: var(--sage);
+  --muted-foreground: var(--charcoal);
+  --accent: var(--yellow);
+  --accent-foreground: #000000;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
   --radius: 0.75rem;
+  --control-feedback-duration: 120ms;
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --shadow-hard: 4px 4px 0px 0px #000000;
+  --shadow-hard-lg: 8px 8px 0px 0px #000000;
+}
+
+@layer components {
+  .control-feedback {
+    transition-property: background-color, color, border-color;
+    transition-duration: var(--control-feedback-duration);
+    transition-timing-function: ease;
+  }
+
+  .control-feedback:focus-visible,
+  .control-feedback:active,
+  .peer:focus ~ .control-feedback {
+    transition: none;
+  }
+
+  .neo-control {
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-hard);
+  }
+
+  .neo-control:focus-visible,
+  .neo-focus:focus-visible,
+  .peer:focus ~ .neo-control {
+    outline: 3px solid var(--ring);
+    outline-offset: 4px;
+  }
+
+  .neo-push {
+    transition-property: transform, background-color, color;
+    transition-duration: 160ms;
+    transition-timing-function: var(--ease-out);
+  }
+
+  .neo-push:focus-visible,
+  .peer:focus ~ .neo-push {
+    transform: none;
+    transition: none;
+  }
+
+  .neo-panel {
+    border: 2px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: var(--shadow-hard-lg);
+  }
+
+  .neo-intro {
+    border-bottom: 2px solid var(--border);
+    padding-block-end: 2.5rem;
+    text-align: center;
+  }
+
+  .neo-heading {
+    max-width: 15ch;
+    margin-inline: auto;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    line-height: 1.08;
+    letter-spacing: -0.04em;
+    text-wrap: balance;
+  }
+
+  .neo-steps {
+    counter-reset: workflow;
+    display: grid;
+    gap: 1.25rem;
+    margin-block-start: 1.5rem;
+  }
+
+  .neo-steps li {
+    counter-increment: workflow;
+    display: flex;
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .neo-steps li::before {
+    content: counter(workflow, decimal-leading-zero);
+    display: grid;
+    flex: 0 0 2.5rem;
+    place-items: center;
+    height: 2.5rem;
+    border: 2px solid #000000;
+    border-radius: 50%;
+    background: var(--yellow);
+    color: #000000;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .neo-push:hover:not(:focus-visible):not(:disabled):not([aria-disabled="true"]),
+  .neo-push:active:not(:focus-visible):not(:disabled):not([aria-disabled="true"]) {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+  }
+
+  .peer:focus ~ .neo-push:hover {
+    transform: none;
+    box-shadow: var(--shadow-hard);
+  }
+}
+
+@media (pointer: coarse) {
+  [data-slot="button"] {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .control-feedback,
+  .neo-push {
+    transition: none;
+    transform: none;
+  }
 }
 
 @theme inline {
@@ -45,6 +196,9 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-yellow: var(--yellow);
+  --color-charcoal: var(--charcoal);
+  --color-sage: var(--sage);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -52,29 +206,48 @@
 }
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, "Noto Sans Arabic", "Noto Naskh Arabic", sans-serif;
+  --font-sans: "Manrope", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Archivo", "Noto Sans Arabic", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
 
   html {
     color-scheme: light;
+    scroll-padding-block-start: 7rem;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    line-height: 1.65;
+    font-weight: 500;
+    line-height: 1.7;
+    background-image: url("/dot-grid.svg");
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
+  h1, h2 {
+    font-family: var(--font-display);
+    font-weight: 800;
+  }
+
+  :lang(ar) .neo-heading {
+    max-width: 16ch;
+    line-height: 1.5;
+    letter-spacing: 0;
+    font-size: clamp(2.25rem, 5vw, 3.75rem);
+  }
+
+  :lang(ar) h2 {
+    letter-spacing: 0;
+  }
+
   ::selection {
-    background: var(--accent);
-    color: var(--accent-foreground);
+    background: var(--charcoal);
+    color: var(--yellow);
   }
 }

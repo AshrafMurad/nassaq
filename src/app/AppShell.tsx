@@ -48,7 +48,7 @@ function RepositoryLink() {
         data-testid="github-link"
       >
         <GithubMark className="size-4" />
-        <span aria-hidden="true">GitHub</span>
+        <span aria-hidden="true" className="hidden sm:inline">GitHub</span>
       </a>
     </Button>
   );
@@ -58,36 +58,35 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="flex min-h-dvh flex-col pt-20">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:start-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+        className="sr-only focus:not-sr-only focus:fixed focus:start-2 focus:top-2 focus:z-50 focus:rounded-lg focus:border-2 focus:border-black focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
       >
         {t('skipToContent')}
       </a>
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex h-16 w-full max-w-4xl items-center justify-between gap-3 px-4 sm:px-6">
+      <header className="fixed inset-x-0 top-0 z-40 h-20 border-b-2 border-black bg-yellow">
+        <div className="mx-auto flex h-full w-full max-w-4xl items-center justify-between gap-3 px-5 sm:px-8">
           <span className="flex items-center gap-2">
             <svg
               viewBox="0 0 64 64"
-              className="size-7"
+              className="size-8 shrink-0 sm:size-10"
               aria-hidden="true"
               role="presentation"
             >
-              <rect width="64" height="64" rx="14" fill="var(--primary)" />
+              <rect width="64" height="64" rx="8" fill="var(--primary)" />
               <path
                 d="M18 21h28M18 32h28M18 43h28M25 14v36M39 14v36"
-                stroke="var(--primary-foreground)"
+                stroke="var(--yellow)"
                 strokeWidth="4.5"
                 strokeLinecap="round"
-                opacity="0.94"
               />
             </svg>
-            <span className="text-lg font-extrabold tracking-tight">
+            <span className="font-display text-xl font-extrabold tracking-tight sm:text-2xl">
               {t('appName')}
             </span>
           </span>
-          <span className="flex items-center gap-2">
+          <span className="flex items-center gap-3">
             <LanguageToggle />
             <RepositoryLink />
           </span>
@@ -95,12 +94,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
       <main
         id="main-content"
-        className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6 sm:py-12"
+        tabIndex={-1}
+        className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 outline-none sm:px-8 sm:py-14"
       >
         {children}
       </main>
-      <footer className="border-t border-border bg-card">
-        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-2 px-4 py-4 text-sm text-muted-foreground sm:px-6">
+      <footer className="border-t-2 border-black bg-charcoal text-sage">
+        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-5 py-6 text-sm sm:px-8">
           <p>{t('privacy')}</p>
           <p>
             {t('appName')} ·{' '}
@@ -108,7 +108,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={REPOSITORY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="font-medium text-primary underline-offset-4 hover:underline"
+              className="neo-focus inline-flex min-h-11 items-center rounded-lg border-2 border-black bg-yellow px-3 font-bold text-black underline underline-offset-4 [--ring:#ffe17c] hover:bg-sage"
             >
               GitHub
             </a>
