@@ -86,6 +86,52 @@ test.describe('Nassaq static shell', () => {
     await expect(page.getByTestId('file-name')).toHaveText('members.csv');
   });
 
+  test('file selection and reset preserve keyboard focus in both languages', async ({ page }) => {
+    await page.goto('/');
+    for (const locale of ['ar', 'en']) {
+      if (locale === 'en') await page.getByTestId('language-toggle').click();
+      const input = page.getByTestId('file-input');
+      await input.focus();
+      await input.setInputFiles({
+        name: 'synthetic.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from(SYNTHETIC_CSV),
+      });
+      await expect(page.getByRole('heading', { level: 2 }).first()).toBeFocused();
+      await page.getByTestId('choose-another').focus();
+      await page.keyboard.press('Enter');
+      await expect(input).toBeFocused();
+      const label = page.locator('label[for]');
+      await expect(label).not.toHaveCSS('box-shadow', 'none');
+      await expect(label).toHaveCSS('transition-duration', '0s');
+    }
+  });
+
+  test('push-button motion is pointer-only and respects reduced motion', async ({ page }) => {
+    await page.goto('/');
+    const toggle = page.getByTestId('language-toggle');
+    await expect(toggle).toHaveCSS('border-top-width', '2px');
+    await expect(toggle).toHaveCSS('box-shadow', 'rgb(0, 0, 0) 4px 4px 0px 0px');
+    await toggle.hover();
+    await expect(toggle).toHaveCSS('transform', 'matrix(1, 0, 0, 1, 4, 4)');
+    await expect(toggle).toHaveCSS('box-shadow', 'none');
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      if (await toggle.evaluate((element) => element === document.activeElement)) break;
+      await page.keyboard.press('Tab');
+    }
+    await expect(toggle).toBeFocused();
+    await expect(toggle).toHaveCSS('transform', 'none');
+    await expect(toggle).toHaveCSS('transition-duration', '0s');
+    await expect(toggle).toHaveCSS('outline-style', 'solid');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await toggle.evaluate((element) => element.blur());
+    await toggle.hover();
+    await expect(toggle).toHaveCSS('transform', 'none');
+    await expect(toggle).toHaveCSS('transition-duration', '0s');
+  });
+
   test('makes no network requests beyond the app itself', async ({ page }) => {
     const externalRequests: string[] = [];
     page.on('request', (request) => {
@@ -98,5 +144,51 @@ test.describe('Nassaq static shell', () => {
     await dropCsvFile(page);
     await expect(page.getByTestId('file-name')).toHaveText('members.csv');
     expect(externalRequests).toEqual([]);
+  });
+});
+
+test.describe('responsive shell interactions', () => {
+  test.use({ viewport: { width: 320, height: 800 }, hasTouch: true });
+
+  test('touch controls, long filenames, and selection layout work in both directions', async ({ page }) => {
+    await page.goto('/');
+    const filename = `سجل-ABC-${'synthetic-long-name-'.repeat(10)}.csv`;
+    for (const locale of ['ar', 'en']) {
+      if (locale === 'en') await page.getByTestId('language-toggle').click();
+      for (const control of await page.locator('header [data-slot="button"]').all()) {
+        const box = await control.boundingBox();
+        expect(box?.height).toBeGreaterThanOrEqual(44);
+      }
+      const picker = await page.locator('label[for]').boundingBox();
+      const dropzone = await page.getByTestId('dropzone').boundingBox();
+      expect(picker?.width).toBeGreaterThan(200);
+      await dropCsvFile(page, filename);
+      const card = await page.getByTestId('import-details').boundingBox();
+      expect(card?.height).toBe(dropzone?.height);
+      const reset = await page.getByTestId('choose-another').boundingBox();
+      expect(reset?.height).toBeGreaterThanOrEqual(44);
+
+      const disclosure = page.locator('summary');
+      await disclosure.focus();
+      await page.keyboard.press('Enter');
+      await expect(page.locator('details')).toHaveAttribute('open', '');
+      await expect(page.locator('details bdi')).toHaveText(filename);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320);
+      await page.getByTestId('choose-another').click();
+    }
+  });
+
+  test('reduced motion keeps file changes and control feedback immediate', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/');
+    for (const control of await page.locator('.control-feedback').all()) {
+      await expect(control).toHaveCSS('transition-duration', '0s');
+      await expect(control).toHaveCSS('transform', 'none');
+    }
+    await expect(page.getByTestId('dropzone')).toHaveCSS('transition-duration', '0s');
+    await dropCsvFile(page);
+    await expect(page.getByRole('heading', { level: 2 }).first()).toBeFocused();
+    await page.getByTestId('choose-another').click();
+    await expect(page.getByTestId('file-input')).toBeFocused();
   });
 });

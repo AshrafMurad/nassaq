@@ -1,24 +1,30 @@
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { Ref } from 'react';
 
 interface ImportDetailsProps {
   file: File;
   onClear: () => void;
+  headingRef?: Ref<HTMLHeadingElement>;
 }
 
-export function ImportDetails({ file, onClear }: ImportDetailsProps) {
+export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps) {
   const { t, i18n: instance } = useTranslation();
   const sizeText = new Intl.NumberFormat(instance.language).format(file.size);
 
   return (
     <div
       data-testid="import-details"
-      className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
+      className="neo-panel flex min-h-72 flex-col justify-center bg-card p-5 sm:p-6"
     >
-      <p className="text-sm font-medium text-muted-foreground">
+      <h2
+        ref={headingRef}
+        tabIndex={-1}
+        className="neo-focus rounded-sm text-sm text-muted-foreground"
+      >
         {t('selectedFile')}
-      </p>
+      </h2>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <FileSpreadsheet
@@ -48,6 +54,14 @@ export function ImportDetails({ file, onClear }: ImportDetailsProps) {
           {t('new')}
         </Button>
       </div>
+      <details className="mt-3 min-w-0">
+        <summary className="control-feedback neo-control mt-1 min-h-11 cursor-pointer content-center bg-sage px-3 py-2 text-sm font-bold text-primary hover:bg-yellow active:bg-yellow">
+          {t('showFullFilename')}
+        </summary>
+        <p className="px-2 pt-2 text-sm [overflow-wrap:anywhere]">
+          <bdi dir="auto">{file.name}</bdi>
+        </p>
+      </details>
     </div>
   );
 }
