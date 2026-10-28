@@ -1,0 +1,5 @@
+# Local agent skill installations and installer metadata
+/.agents/skills/
+/.opencode/skills/
+/.opencode/skill/
+/skills-lock.json
