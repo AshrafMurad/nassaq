@@ -66,6 +66,37 @@ File size/type enforcement is intentionally deferred to Phase 2 gating; the
 dropzone only displays the caps. Owner visual review of the rendered AR/EN
 shell is still recommended.
 
+**Shell review follow-up (2026-10-29, `fix/shell-interaction-polish`):**
+Implemented focus continuity, shared color-only control feedback, immediate
+focus/pressed states, reduced-motion handling, coarse-pointer targets, a
+full-width mobile picker CTA, matched minimum file-region heights, and native
+full-filename disclosure. `npm run typecheck` and `npm run test:e2e` passed,
+including the production build and 30 Playwright checks (10 cases across
+Chromium/Firefox/WebKit). New regressions cover AR/EN focus/reset, 320px touch
+layout and long filenames, and reduced motion. An initial Firefox focus-modality
+difference was corrected before the passing run. The design detector reported
+no findings. Real-device and screen-reader smoke remain manual follow-ups.
+This is a Phase 1 shell refinement; Phase 2 remains separately authorized.
+
+**Owner-approved visual restyle (2026-10-29, `style/neo-brutalist-shell`):**
+The owner selected restyling the existing compact shell, preserving its section
+order, bilingual content, and file-selection interactions. The shell now uses
+yellow/charcoal/sage fields, 2px black borders, zero-blur hard shadows, a fixed
+80px header, an SVG dot tile, and fine-pointer-only push-button feedback. Reduced
+motion and keyboard focus suppress translation. The owner approved locally
+hosted OFL alternatives (Archivo, Manrope, Noto Sans Arabic) after the downloaded
+Fontshare licenses were found to restrict repository redistribution; source URLs
+and license notices are included in `public/fonts/`. No package changes.
+`npm run typecheck`, production build, and all 33 Playwright checks passed across
+Chromium/Firefox/WebKit. The new motion regression checks pointer hover,
+keyboard-visible focus, and reduced-motion behavior; the first run caught and
+resolved an inherited outline utility overriding the authored focus style.
+Chromium layout checks at 320/375/768/1280px passed in AR/EN with all local fonts
+loaded, 2px panel borders, 8px zero-blur panel shadows, and no horizontal
+overflow. Desktop/mobile screenshots and expanded synthetic filename disclosure
+were inspected; the design detector reported no findings. See `../DESIGN.md`.
+Physical-device and screen-reader smoke remain manual release follow-ups.
+
 **Tasks:** Vite React TS strict; Tailwind v4; limited shadcn/ui primitives; react-i18next Arabic default; `dir`/`lang` switch; accessible `FileDropzone`, AppShell; build scripts; static-only deployment config. Avoid router unless needed for a legal/privacy page (simple in-page section is enough).
 
 **Expected modules:** `src/main.tsx`, `src/app/App.tsx`, `src/app/providers.tsx`, `src/i18n/*`, `src/components/import/FileDropzone.tsx`, `src/styles/*`, `vite.config.ts`, `package.json`, configs.

@@ -1,12 +1,13 @@
-import { useId, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useId, useState, type ChangeEvent, type DragEvent, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CloudUpload } from 'lucide-react';
 
 interface FileDropzoneProps {
   onFileSelected: (file: File) => void;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
-export function FileDropzone({ onFileSelected }: FileDropzoneProps) {
+export function FileDropzone({ onFileSelected, inputRef }: FileDropzoneProps) {
   const { t } = useTranslation();
   const inputId = useId();
   const [dragActive, setDragActive] = useState(false);
@@ -51,13 +52,14 @@ export function FileDropzone({ onFileSelected }: FileDropzoneProps) {
       onDrop={handleDrop}
       className={
         dragActive
-          ? 'rounded-2xl border-2 border-solid border-primary bg-accent/50 p-8 text-center shadow-md transition-shadow motion-safe:duration-200 sm:p-10'
-          : 'rounded-2xl border-2 border-dashed border-border bg-card p-8 text-center transition-shadow motion-safe:duration-200 sm:p-10'
+          ? 'neo-panel min-h-72 bg-sage p-6 text-center sm:p-10'
+          : 'neo-panel min-h-72 bg-card p-6 text-center sm:p-10'
       }
     >
-      <CloudUpload className="mx-auto size-10 text-primary" aria-hidden="true" />
+      <CloudUpload className="mx-auto size-12 text-primary" aria-hidden="true" />
       <input
         id={inputId}
+        ref={inputRef}
         data-testid="file-input"
         type="file"
         accept=".csv,.txt"
@@ -66,11 +68,13 @@ export function FileDropzone({ onFileSelected }: FileDropzoneProps) {
       />
       <label
         htmlFor={inputId}
-        className="mt-4 inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-sm outline-none transition-colors motion-safe:duration-200 hover:bg-primary/90 peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/50"
+        className="control-feedback neo-control neo-push mt-4 inline-flex min-h-14 w-full cursor-pointer items-center justify-center gap-2 bg-primary px-5 py-3 font-bold text-primary-foreground hover:bg-charcoal active:bg-charcoal sm:w-auto"
       >
         {t('choose')}
       </label>
-      <p className="mt-3 text-sm text-muted-foreground">{t('drag')}</p>
+      <p aria-live="polite" className="mt-3 text-sm text-muted-foreground">
+        {dragActive ? t('dropReady') : t('drag')}
+      </p>
       <p className="mt-1 text-xs text-muted-foreground">{t('limits')}</p>
     </div>
   );

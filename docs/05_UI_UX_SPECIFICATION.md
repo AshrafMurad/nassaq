@@ -6,7 +6,12 @@
 
 The user should not have to understand “encoding”, “delimiter”, “type coercion”, or “formula injection” to use Nassaq. Present a short step-by-step interface and natural labels: “How does the Arabic text look?”, “How are columns separated?”, “Keep as text (recommended)” and “Create Excel”. Advanced technical terms belong in help popovers, not primary instructions.
 
-**Visual tone:** trustworthy, calm, utility-first. Simple typography (locally bundled Arabic/English font or system fallback), clear spacing, neutral surfaces, single accent, no overly technical dashboard. Accessible contrast and distinct error/warning indicators; color is never the sole channel.
+**Visual tone (owner-approved shell restyle, 2026-10-29):** confident, geometric
+Neo-Brutalism using yellow `#ffe17c`, charcoal `#171e19`, sage `#b7c6c2`, white
+and black. Use 2px black borders, 4px/8px zero-blur offset shadows, and locally
+bundled OFL typography with Arabic glyph coverage. Preserve a compact,
+utility-first page and accessible contrast; color is never the sole channel.
+See `../DESIGN.md` for the implemented tokens and interaction rules.
 
 ## 2. App anatomy and sequence
 
@@ -114,6 +119,18 @@ Actual strings should be kept in `ar` and `en` resource files; translators must 
 - Error/warning icons accompanied by text. Long names truncate visually with full tooltip; do not lose full name from accessibility tree.
 - Desktop ≥1024px: two-column settings and preview only if useful. Tablet/small viewport: stack everything, scroll preview, full-width main CTA. Phone devices may hit memory constraints; explain size cap and avoid making desktop assumptions in markup.
 - Respect `prefers-reduced-motion`, avoid animation dependent on language or state.
+
+**Shell interaction decision (2026-10-29):** File selection focuses the selected-file
+heading; reset restores focus to the native file input without scrolling. The
+picker and selected-file card share an 18rem minimum height to reduce layout jumps
+(expanded content may grow naturally). Controls share 2px borders, corners no
+larger than 12px, and immediate focus feedback. The owner-approved Neo-Brutalist
+restyle adds a 160ms strong ease-out 4px push interaction for fine-pointer hover;
+shadow changes are instantaneous, never interpolated. Keyboard focus and reduced
+motion suppress spatial movement; reduced motion also removes transitions. Coarse
+pointer buttons have at least 44px targets, and the picker CTA fills the phone
+layout. A native keyboard/touch-accessible disclosure exposes the complete,
+escaped, direction-isolated filename without relying on a hover tooltip.
 
 ## 8. Edge states and micro-interactions
 
