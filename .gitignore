@@ -3,3 +3,13 @@
 /.opencode/skills/
 /.opencode/skill/
 /skills-lock.json
+
+# Dependencies and build output
+/node_modules/
+/dist/
+
+# Test artifacts
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
