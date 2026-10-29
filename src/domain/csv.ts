@@ -11,6 +11,8 @@
 
 import Papa from 'papaparse';
 import type { DelimiterChar, ColumnMeta, ParseSummary, PreviewRow } from './protocol';
+import { scanTableRisks } from './risks';
+import { validateColumnNumeric } from './numeric-policy';
 import {
   MAX_COLUMNS,
   MAX_DATA_ROWS,
@@ -212,21 +214,40 @@ export function validateAndSummarize(
     headerLabels.push(headerRecord ? (headerRecord[c] ?? '') : '');
   }
 
-  // Column metadata (non-empty count, from data rows only)
-  const columnMeta: ColumnMeta[] = Array.from({ length: columns }, (_, i) => ({
-    index: i,
-    label: headerLabels[i] ?? '',
-    nonEmptyCount: 0,
-  }));
+  // Scan risks across the entire table
+  const riskAnalysis = scanTableRisks(records, firstRowIsHeader);
 
-  for (const row of dataRecords) {
-    for (let c = 0; c < columns; c++) {
-      const cell = row[c] ?? '';
-      if (cell !== '') {
-        const col = columnMeta[c];
-        if (col) col.nonEmptyCount++;
-      }
+  // Column metadata (non-empty count, numeric validation, risk counts from data rows only)
+  const rowOffset = firstRowIsHeader ? 2 : 1;
+  const columnMeta: ColumnMeta[] = [];
+
+  for (let c = 0; c < columns; c++) {
+    const colValues = dataRecords.map((r) => r[c] ?? '');
+    const numValidation = validateColumnNumeric(colValues, rowOffset);
+    const colRisks = riskAnalysis.columnRisks[c] ?? {
+      LEADING_ZERO: 0,
+      LONG_NUMBER: 0,
+      DATE_SHAPED: 0,
+      SCIENTIFIC_NOTATION: 0,
+      DECIMAL_SEPARATOR_AMBIGUITY: 0,
+      FORMULA_LIKE: 0,
+      MIXED_DIRECTION: 0,
+    };
+
+    let nonEmptyCount = 0;
+    for (const val of colValues) {
+      if (val !== '') nonEmptyCount++;
     }
+
+    columnMeta.push({
+      index: c,
+      label: headerLabels[c] ?? '',
+      nonEmptyCount,
+      isNumericEligible: numValidation.eligible,
+      numericIneligibleReason: numValidation.primaryReason,
+      numericIneligibleSampleRows: numValidation.failedRowIndices,
+      riskCounts: colRisks,
+    });
   }
 
   // Preview: first 20 data rows, padded to `columns` width
@@ -255,6 +276,8 @@ export function validateAndSummarize(
     totalCells,
     hasUnevenRows,
     unevenRowIndices,
+    riskSummary: riskAnalysis.summary,
+    totalRisks: riskAnalysis.totalRisks,
   };
 
   return { ok: true, summary, table: records };
