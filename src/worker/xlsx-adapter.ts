@@ -66,7 +66,11 @@ export async function generateAndVerifyXlsx(
         if (targetType === 'number' && rawValue !== '') {
           cell.value = Number(rawValue);
         } else {
-          cell.value = rawValue;
+          // ExcelJS 4.4 writes these sequences verbatim but decodes them on load.
+          // OOXML requires escaping their leading underscore as _x005F_. Use
+          // lookahead so shared underscores (_x0041_x000D_) are also protected.
+          // This is serialization encoding only; verification uses rawValue.
+          cell.value = rawValue.replace(/_(?=x[0-9A-Fa-f]{4}_)/g, '_x005F_');
           cell.numFmt = '@';
         }
       }

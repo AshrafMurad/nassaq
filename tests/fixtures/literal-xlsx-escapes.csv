@@ -1,0 +1,27 @@
+Scenario,_x0041_,Amount
+letter,_x0041_,2.5
+carriage-return,_x000D_,-17
+line-feed,_x000A_,0
+tab,_x0009_,42
+underscore,_x005F_,1
+lowercase-hex,_x00af_,2
+mixed-case-hex,_x00aF_,3
+null-looking,_x0000_,4
+surrogate-looking,_xD83D__xDE00_,5
+adjacent,_x0041__x000D_,6
+shared-underscore,_x0041_x000D_,7
+already-escaped,_x005F_x0041_,8
+repeated-escape,_x005F_x005F_x0041_,9
+embedded,prefix_x0041_suffix,10
+arabic,نص_x0041_عربي,11
+formula-looking,=_x0041_+1,12
+xml-characters,<tag>&_x000D_,13
+spaces,  _x0041_  ,14
+empty,,15
+not-an-escape,_x041_,16
+invalid-hex,_xZZZZ_,17
+uppercase-marker,_X0041_,18
+beyond-preview,_x000D__x0041_,19
+trailing-underscore,_x0041__,20
+leading-underscore,__x0041_,21
+nested-lowercase,_x005f_x000d_,22

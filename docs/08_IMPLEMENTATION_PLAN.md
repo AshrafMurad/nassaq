@@ -193,6 +193,24 @@ and `src/components/import/ImportDetails.tsx` (integrated review, verification, 
 
 **Acceptance:** `00073`, `12345678901234567890`, `03-04`, Arabic and `=1+1` preserved exactly; no formula cells; failed/tampered verification blocks download. **Tests:** workbook read-back fixtures and mismatch injection, end-to-end download inspection. **Depends:** phase 3 and passed phase 0.
 
+**Focused export-integrity follow-up (2026-10-29, `fix/literal-xlsx-escapes`):**
+Owner-authorized fix for literal `_x0041_` and `_x000D_` strings, discovered
+during an 80-scenario CSV comparison. ExcelJS 4.4.0 decoded the unescaped strings
+on read-back; the existing verifier correctly blocked delivery. The adapter now
+uses standard OOXML `_x005F_` encoding for the leading underscores, including
+shared-underscore/nested sequences, without modifying source records or weakening
+verification. Added a 26-record UTF-8 fixture, header/no-header and max-cell-length
+regressions, raw shared-string XML assertions, and a downloaded-XLSX browser test.
+Pinned the new fixture and the existing LF-sensitive multiline fixture to LF
+after a Windows CRLF checkout exposed an unrelated baseline fixture failure.
+Verification passed: `npm run typecheck`, all 147 unit/integration tests,
+production build, and 30 targeted Playwright export/privacy/offline/recovery
+checks across Chromium/Firefox/WebKit. The running app also exported the complete
+80-scenario Desktop CSV in Text and opt-in Number modes in all three engines:
+648 cells per download (3,888 comparisons), all exact, confirmed by ExcelJS
+read-back and independent ZIP/XML inspection. No dependency changes. Real
+Excel/LibreOffice opening remains a manual compatibility follow-up.
+
 ## Phase 5 — Security, final QA, release preparation (1.5–2.0 h)
 
 **Objective:** credible public MVP with reproducible tests.

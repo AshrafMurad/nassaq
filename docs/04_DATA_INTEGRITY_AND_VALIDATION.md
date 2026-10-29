@@ -93,6 +93,19 @@ Risk scanner runs **after decoding and parsing**, before export. It may flag:
 - Sheet style, if any, may set header bold/RTL sheet view only if it does not affect data values or correctness. RTL worksheet view is optional; mixed-direction data must remain untouched.
 - Generated workbook contains no external connections, volatile formulas, macros, web links or inserted rich content.
 
+**Literal OOXML escapes (2026-10-29):** ExcelJS 4.4.0 writes source strings
+such as `_x0041_` and `_x000D_` without protecting the leading underscore, then
+interprets them as `A` and a carriage return during read-back. The XLSX adapter
+must encode each underscore beginning `_xHHHH_` (hex digits in either case) as
+the OOXML literal-underscore escape `_x005F_` before assigning the string to
+ExcelJS. This is XLSX serialization encoding, not a source-value transform:
+parsed records, preview, numeric eligibility, and verification expectations stay
+unchanged. Protect headers, adjacent/shared-underscore sequences, and already
+escape-looking strings in one pass; never recursively escape the encoded result.
+The generated package must reload to the exact original strings and still pass
+the complete verification gate. Raw shared-string XML tests independently check
+the required encoding.
+
 ## 7. Mandatory verification algorithm
 
 1. Complete XLSX buffer creation successfully; **do not** offer it for download yet.

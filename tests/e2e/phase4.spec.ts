@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import ExcelJS from 'exceljs';
+import { readFileSync } from 'node:fs';
+import Papa from 'papaparse';
 
 async function setInputFile(
   page: Page,
@@ -20,6 +22,45 @@ async function waitForReviewReady(page: Page): Promise<void> {
 }
 
 test.describe('Phase 4 — Safe XLSX and mandatory verification', () => {
+  test('download preserves literal XLSX escapes, headers, and values beyond the preview', async ({ page }) => {
+    const csv = readFileSync('tests/fixtures/literal-xlsx-escapes.csv', 'utf-8');
+    const parsed = Papa.parse<string[]>(csv, { header: false, dynamicTyping: false, skipEmptyLines: false });
+    expect(parsed.errors).toEqual([]);
+    const records = parsed.data;
+    if (records.at(-1)?.length === 1 && records.at(-1)?.[0] === '') records.pop();
+
+    await page.goto('/');
+    await setInputFile(page, csv, 'literal-xlsx-escapes.csv');
+    await waitForReviewReady(page);
+    await page.getByTestId('column-type-select-2').selectOption('number');
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('validation-success')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('manifest-number-cells')).toHaveText('26');
+
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('download-excel-button').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('literal-xlsx-escapes.xlsx');
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(new Uint8Array(Buffer.concat(chunks)).buffer);
+    expect(workbook.worksheets).toHaveLength(1);
+    const sheet = workbook.getWorksheet('Data');
+    expect(sheet?.rowCount).toBe(records.length);
+    expect(sheet?.columnCount).toBe(3);
+    records.forEach((row, r) => row.forEach((value, c) => {
+      const numeric = r > 0 && c === 2;
+      const cell = sheet?.getCell(r + 1, c + 1);
+      expect(cell?.value).toBe(numeric ? Number(value) : value);
+      expect(cell?.type).toBe(numeric ? ExcelJS.ValueType.Number : ExcelJS.ValueType.String);
+      expect(cell?.formula).toBeUndefined();
+      expect(cell?.hyperlink).toBeUndefined();
+    }));
+  });
+
   test('end-to-end: generates, verifies, downloads, and preserves exact data', async ({
     page,
   }) => {
