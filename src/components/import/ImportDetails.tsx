@@ -1,22 +1,39 @@
 /**
- * ImportDetails — Phase 2
+ * ImportDetails — Phase 3
  *
  * Shown after a file is selected. Manages the worker parse lifecycle:
  *  - Automatically starts a parse job when mounted with a new file.
  *  - Shows progress spinner during decoding / parsing.
  *  - Shows ENCODING_REVIEW notice when non-ASCII UTF-8 detected (non-blocking).
  *  - Shows DELIMITER_REVIEW selector when auto-detection is ambiguous.
- *  - Shows ParseResult summary when READY.
+ *  - When READY:
+ *     - Displays EncodingSelector & DelimiterSelector for manual tuning (re-parses from raw bytes)
+ *     - Displays HeaderModeToggle
+ *     - Displays RiskSummary (breakdown of leading zeros, long IDs, date-shapes, formulas, etc.)
+ *     - Displays DataPreviewTable (up to 20 rows, escaped safe text, cell risk badges, ColumnTypeSelector per column)
+ *     - Displays ParseResultSummary (rows, columns, encoding, delimiter, uneven rows)
+ *     - Displays primary "Create safe Excel" CTA
  *  - Shows ParseError when the worker returns an error.
- *  - Respects encoding + delimiter selector changes by re-parsing from raw bytes.
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileSpreadsheet, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
+import {
+  FileSpreadsheet,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  FileCheck,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkerClient } from '@/lib/worker-client';
 import { delimiterLabel, DELIMITER_CANDIDATES } from '@/domain/delimiter';
+import { EncodingSelector } from './EncodingSelector';
+import { DelimiterSelector } from './DelimiterSelector';
+import { HeaderModeToggle } from './HeaderModeToggle';
+import { RiskSummary } from './RiskSummary';
+import { DataPreviewTable } from './DataPreviewTable';
+import { updateColumnType, type ColumnType } from '@/app/import-state';
 import type { Ref } from 'react';
 import type {
   ParseSummary,
@@ -42,12 +59,6 @@ type ParseState =
   | { status: 'ready'; summary: ParseSummary }
   | { status: 'error'; err: WorkerMsgError };
 
-const ENCODING_OPTIONS: { value: SupportedEncoding; label: string }[] = [
-  { value: 'utf-8', label: 'UTF-8' },
-  { value: 'windows-1256', label: 'Windows-1256 (Arabic)' },
-  { value: 'iso-8859-6', label: 'ISO-8859-6 (Arabic)' },
-];
-
 export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps) {
   const { t, i18n: instance } = useTranslation();
   const sizeText = new Intl.NumberFormat(instance.language).format(file.size);
@@ -58,10 +69,7 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
   const [encoding, setEncoding] = useState<SupportedEncoding>('utf-8');
   const [delimiter, setDelimiter] = useState<DelimiterChar | undefined>(undefined);
   const [firstRowIsHeader, setFirstRowIsHeader] = useState(true);
-
-  // Stable reference to avoid stale closures in worker callbacks
-  const parseStateRef = useRef<ParseState>({ status: 'idle' });
-  parseStateRef.current = parseState;
+  const [columnTypes, setColumnTypes] = useState<Record<number, ColumnType>>({});
 
   const startParse = useCallback(
     (
@@ -105,7 +113,7 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
     [file],
   );
 
-  // Auto-start parse on mount and when file / encoding / delimiter / header changes
+  // Auto-start parse on mount
   useEffect(() => {
     startParse(encoding, delimiter, firstRowIsHeader);
     return () => {
@@ -117,21 +125,23 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
   const handleEncodingChange = (enc: SupportedEncoding) => {
     setEncoding(enc);
     setDelimiter(undefined);
+    setColumnTypes({});
     startParse(enc, undefined, firstRowIsHeader);
   };
 
   const handleDelimiterConfirm = (delim: DelimiterChar) => {
     setDelimiter(delim);
+    setColumnTypes({});
     startParse(encoding, delim, firstRowIsHeader);
   };
 
   const handleHeaderToggle = (header: boolean) => {
     setFirstRowIsHeader(header);
+    setColumnTypes({});
     startParse(encoding, delimiter, header);
   };
 
   const handleEncodingConfirm = () => {
-    // User confirmed encoding is correct; continue with same encoding + auto-delimiter
     startParse(encoding, delimiter, firstRowIsHeader);
   };
 
@@ -159,6 +169,13 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
       default: return t('badEncode');
     }
   }
+
+  const activeDelimiter: DelimiterChar =
+    delimiter ??
+    (parseState.status === 'ready' ? parseState.summary.delimiter : ',');
+
+  const hadBom =
+    parseState.status === 'ready' ? parseState.summary.hadBom : false;
 
   return (
     <div data-testid="import-details" className="neo-panel flex flex-col overflow-hidden bg-card">
@@ -190,56 +207,48 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
             </div>
           </div>
         </div>
-        <Button variant="outline" onClick={onClear} data-testid="choose-another" className="min-h-11 shrink-0">
+        <Button
+          variant="outline"
+          onClick={onClear}
+          data-testid="choose-another"
+          className="min-h-11 shrink-0"
+        >
           {t('new')}
         </Button>
       </div>
 
-      {/* ── Encoding selector ─────────────────────────────────────────── */}
-      <div className="border-t border-black px-5 py-4 sm:px-6">
-        <label
-          className="block text-sm font-bold text-charcoal"
-          htmlFor="encoding-select"
-        >
-          {t('encoding')}
-        </label>
-        <select
-          id="encoding-select"
-          data-testid="encoding-select"
+      {/* ── Settings controls: Encoding, Delimiter, Header ────────────── */}
+      <div className="space-y-4 border-t border-black bg-card px-5 py-4 sm:px-6">
+        <EncodingSelector
           value={encoding}
-          onChange={(e) => handleEncodingChange(e.target.value as SupportedEncoding)}
-          className="neo-control neo-focus mt-1 w-full rounded-sm border border-black bg-white px-3 py-2 text-sm"
-        >
-          {ENCODING_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
+          hadBom={hadBom}
+          onChange={handleEncodingChange}
+          disabled={parseState.status === 'parsing'}
+        />
 
-      {/* ── Header toggle ─────────────────────────────────────────────── */}
-      <div className="border-t border-black px-5 pb-4 sm:px-6">
-        <label className="flex cursor-pointer items-center gap-2 text-sm font-bold text-charcoal">
-          <input
-            type="checkbox"
-            data-testid="header-checkbox"
+        <DelimiterSelector
+          value={activeDelimiter}
+          onChange={handleDelimiterConfirm}
+          disabled={parseState.status === 'parsing'}
+        />
+
+        <div className="pt-1">
+          <HeaderModeToggle
             checked={firstRowIsHeader}
-            onChange={(e) => handleHeaderToggle(e.target.checked)}
-            className="neo-focus size-4 rounded-sm border border-black"
+            onChange={handleHeaderToggle}
+            disabled={parseState.status === 'parsing'}
           />
-          {t('header')}
-        </label>
+        </div>
       </div>
 
-      {/* ── Parse state panel ─────────────────────────────────────────── */}
+      {/* ── Worker processing & interactive review panel ──────────────── */}
       <div className="border-t border-black px-5 py-5 sm:px-6">
         {parseState.status === 'idle' && null}
 
         {parseState.status === 'parsing' && (
-          <div className="flex items-center gap-3" role="status" aria-live="polite">
+          <div className="flex items-center gap-3 py-4" role="status" aria-live="polite">
             <Loader2 className="size-5 animate-spin text-primary" aria-hidden="true" />
-            <span className="text-sm text-charcoal">
+            <span className="text-sm font-semibold text-charcoal">
               {progressLabel(parseState.phase)}
             </span>
           </div>
@@ -316,19 +325,52 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
         {parseState.status === 'error' && (
           <div
             role="alert"
-            className="flex items-start gap-3"
+            className="flex items-start gap-3 py-2"
             data-testid="parse-error"
           >
             <AlertTriangle
               className="mt-0.5 size-5 shrink-0 text-red-600"
               aria-hidden="true"
             />
-            <p className="text-sm text-charcoal">{errorMessage(parseState.err)}</p>
+            <p className="text-sm font-medium text-charcoal">{errorMessage(parseState.err)}</p>
           </div>
         )}
 
         {parseState.status === 'ready' && (
-          <ParseResultSummary summary={parseState.summary} />
+          <div className="space-y-6">
+            {/* 1. Risk Summary Strip */}
+            <RiskSummary summary={parseState.summary} />
+
+            {/* 2. Interactive Data Preview Table with Column Type Selectors */}
+            <DataPreviewTable
+              summary={parseState.summary}
+              columnTypes={columnTypes}
+              onColumnTypeChange={(c, type) => {
+                setColumnTypes((prev) => updateColumnType(prev, c, type));
+              }}
+            />
+
+            {/* 3. Parse Metadata Statistics */}
+            <ParseResultSummary summary={parseState.summary} />
+
+            {/* 4. Safe Excel Action Area */}
+            <div className="border-t-2 border-black pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-bold text-charcoal">{t('create')}</p>
+                  <p className="text-xs text-muted-foreground">{t('createActionHelp')}</p>
+                </div>
+                <Button
+                  size="lg"
+                  className="neo-push min-h-12 border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black"
+                  data-testid="create-excel-button"
+                >
+                  <FileCheck className="size-5 shrink-0" aria-hidden="true" />
+                  <span>{t('create')}</span>
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -369,39 +411,49 @@ function ParseResultSummary({ summary }: ParseResultSummaryProps) {
       : 'ISO-8859-6';
 
   return (
-    <div className="space-y-3" data-testid="parse-result">
+    <div className="rounded-sm border border-black/20 bg-muted/20 p-4 space-y-3" data-testid="parse-result">
       <div className="flex items-center gap-2">
         <CheckCircle2 className="size-5 shrink-0 text-green-700" aria-hidden="true" />
         <p className="text-sm font-bold text-charcoal">{t('parseResultTitle')}</p>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <dt className="text-muted-foreground">{t('parseRows')}</dt>
-        <dd className="tabular-nums" data-testid="parse-data-rows">
-          {summary.dataRows.toLocaleString()}
-        </dd>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs sm:grid-cols-4 sm:text-sm">
+        <div>
+          <dt className="text-muted-foreground">{t('parseRows')}</dt>
+          <dd className="font-semibold tabular-nums" data-testid="parse-data-rows">
+            {summary.dataRows.toLocaleString()}
+          </dd>
+        </div>
 
-        <dt className="text-muted-foreground">{t('parseColumns')}</dt>
-        <dd className="tabular-nums" data-testid="parse-columns">
-          {summary.columns}
-        </dd>
+        <div>
+          <dt className="text-muted-foreground">{t('parseColumns')}</dt>
+          <dd className="font-semibold tabular-nums" data-testid="parse-columns">
+            {summary.columns}
+          </dd>
+        </div>
 
-        <dt className="text-muted-foreground">{t('parseEncoding')}</dt>
-        <dd data-testid="parse-encoding">{encodingLabel}</dd>
+        <div>
+          <dt className="text-muted-foreground">{t('parseEncoding')}</dt>
+          <dd className="font-semibold" data-testid="parse-encoding">{encodingLabel}</dd>
+        </div>
 
-        <dt className="text-muted-foreground">{t('parseDelimiter')}</dt>
-        <dd data-testid="parse-delimiter">{delimLabel}</dd>
+        <div>
+          <dt className="text-muted-foreground">{t('parseDelimiter')}</dt>
+          <dd className="font-semibold" data-testid="parse-delimiter">{delimLabel}</dd>
+        </div>
 
-        <dt className="text-muted-foreground">{t('parseHasHeader')}</dt>
-        <dd data-testid="parse-has-header">
-          {summary.firstRowIsHeader ? t('parseYes') : t('parseNo')}
-        </dd>
+        <div className="col-span-2 sm:col-span-4 flex items-center gap-2 pt-1 border-t border-black/10">
+          <dt className="text-muted-foreground">{t('parseHasHeader')}:</dt>
+          <dd className="font-semibold" data-testid="parse-has-header">
+            {summary.firstRowIsHeader ? t('parseYes') : t('parseNo')}
+          </dd>
+        </div>
       </dl>
 
       {summary.hasUnevenRows && (
         <p
           role="alert"
-          className="flex items-start gap-2 text-sm text-amber-700"
+          className="flex items-start gap-2 text-xs sm:text-sm text-amber-700"
           data-testid="uneven-rows-warning"
         >
           <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
