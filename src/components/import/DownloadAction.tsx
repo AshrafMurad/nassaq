@@ -56,7 +56,7 @@ export function DownloadAction({
           <Button
             size="lg"
             onClick={onDownload}
-            className="neo-push min-h-12 border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black"
+            className="neo-push min-h-12 cursor-pointer border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black active:bg-charcoal active:text-yellow"
             data-testid="download-excel-button"
           >
             <Download className="size-5 shrink-0" aria-hidden="true" />
@@ -67,7 +67,7 @@ export function DownloadAction({
             size="lg"
             onClick={onExport}
             disabled={isExporting}
-            className="neo-push min-h-12 border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black disabled:opacity-50"
+            className="neo-push min-h-12 cursor-pointer border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black active:bg-charcoal active:text-yellow disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="create-excel-button"
           >
             {isExporting ? (

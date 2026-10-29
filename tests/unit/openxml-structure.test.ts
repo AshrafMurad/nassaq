@@ -43,6 +43,24 @@ function extractZipEntry(buffer: ArrayBuffer, targetPath: string): string | null
 }
 
 describe('OpenXML spreadsheet structure & formula protection', () => {
+  it('encodes literal escape underscores in shared strings using OOXML escaping', async () => {
+    const result = await generateAndVerifyXlsx([
+      ['_x0041_', '_x000D_'],
+      ['_x0041_x000D_', '_x005F_x0041_'],
+      ['_x00af_', '<tag>&_x000D_'],
+    ], {}, true);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const xml = extractZipEntry(result.buffer, 'xl/sharedStrings.xml');
+    expect(xml).toContain('<t>_x005F_x0041_</t>');
+    expect(xml).toContain('<t>_x005F_x000D_</t>');
+    expect(xml).toContain('<t>_x005F_x0041_x005F_x000D_</t>');
+    expect(xml).toContain('<t>_x005F_x005F_x005F_x0041_</t>');
+    expect(xml).toContain('<t>_x005F_x00af_</t>');
+    expect(xml).toContain('<t>&lt;tag&gt;&amp;_x005F_x000D_</t>');
+  });
+
   it('raw OpenXML sheet1.xml contains no <f> formula tags for formula-like cells', async () => {
     const records = [
       ['Title', 'DangerousFormula', 'NumberCol'],

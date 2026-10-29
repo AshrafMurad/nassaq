@@ -72,6 +72,10 @@ Messages are strongly typed discriminated unions with `jobId` (monotonic), `kind
 
 CSV **quoting syntax** is stripped by parsing, while the decoded **field content** is preserved. Do not `trim()`, normalize Unicode, replace Arabic digits, strip BOM other than the *file-leading UTF-8 BOM*, or use `Number` by default. For text fields, assign plain strings to ExcelJS. For explicit Number mode, validation determines the approved numeric value; see integrity spec.
 
+The XLSX adapter applies the OOXML literal-underscore encoding required for
+source `_xHHHH_` strings before assigning text to ExcelJS 4.4.0. The original
+parsed strings remain the read-back verification expectations; see `04` §6.
+
 ## 4. Detailed pipeline
 
 1. **Gate file:** require `File`; raw file `size` ≤2 MiB and >0; expect `.csv`/`.txt`; reject strong binary indicators, ZIP signatures (`PK`), NUL-heavy samples and extensions such as `.xlsx`. Do not trust MIME as decisive.

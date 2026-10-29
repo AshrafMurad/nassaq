@@ -1,0 +1,3 @@
+# Keep newline-sensitive synthetic fixtures identical on Windows checkouts.
+tests/fixtures/multiline.csv text eol=lf
+tests/fixtures/literal-xlsx-escapes.csv text eol=lf

@@ -24,6 +24,26 @@ function readFixtureString(filename: string, encoding: BufferEncoding = 'utf-8')
 }
 
 describe('Golden synthetic fixture matrix', () => {
+  it('literal-xlsx-escapes.csv: UTF-8 bytes parse and export without interpreting literal escapes', async () => {
+    const raw = readFixtureBuffer('literal-xlsx-escapes.csv');
+    const decoded = decodeWithEncoding(raw, 'utf-8');
+    const { records: rawRecords, errors } = parseRawCsv(decoded, ',');
+    const records = removePhantomTrailingRecord(rawRecords, decoded);
+    const parsed = validateAndSummarize(records, errors, ',', 'utf-8', false, true, true);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+
+    expect(parsed.table[0]).toEqual(['Scenario', '_x0041_', 'Amount']);
+    expect(parsed.table[1]?.[1]).toBe('_x0041_');
+    expect(parsed.table[2]?.[1]).toBe('_x000D_');
+    expect(parsed.table[23]?.[1]).toBe('_x000D__x0041_');
+    const result = await generateAndVerifyXlsx(parsed.table, { 2: 'number' }, true);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.manifest.numberCells).toBe(26);
+    expect(result.manifest.verificationSuccess).toBe(true);
+  });
+
   it('1. arabic-utf8-bom.csv: UTF-8 BOM detected and stripped; exact Arabic & leading zeros', async () => {
     const raw = readFixtureBuffer('arabic-utf8-bom.csv');
     const decodeRes = detectAndDecodeUtf8(raw);

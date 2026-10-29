@@ -52,6 +52,17 @@ All data below is conceptual fixture content; expected workbook cell type in Tex
 
 Additional fixtures: terminal newlines `a\n`, `a\n\n`, CRLF and CR; embedded null; Unicode normalization precomposed vs decomposed; Arabic joining and bidi marks `U+200E/U+200F`; duplicate headers; blank header fields; literal U+FFFD; malformed UTF-8 byte sequence; wrong/manual encoding selection; delimiter ties/one-column file; 32,767 vs 32,768 UTF-16 units; limits at/above 2 MiB, 10,000 rows, 50 columns, 100,000 cells.
 
+`literal-xlsx-escapes.csv` covers literal `_x0041_`/`_x000D_`, a header containing
+an escape-looking string, uppercase/lowercase hex, adjacent and shared-underscore
+sequences, nested `_x005F_` strings, XML metacharacters, and values after the
+20-record preview. Require downloaded/reloaded exact text and opt-in numeric
+types across Chromium/Firefox/WebKit, plus raw shared-string XML assertions.
+Adapter regressions also cover no-header mode, unchanged source records, and a
+32,767-unit source string whose serialized representation grows after escaping.
+These two newline-sensitive CSV fixtures are pinned to LF in `.gitattributes`
+so Windows checkout cannot alter their bytes; in particular, `multiline.csv`
+contains an embedded LF that its existing exact-value assertion requires.
+
 ## 3. Test expectations at precise cell level
 
 **Core assertion helper (conceptual):** For each `r,c`, obtain loaded worksheet cell by index and compare to expected typed value. For expected `Text` cells, assert primitive `string` and Unicode exact equality (including zero-length, right-to-left marks and trailing spaces). For expected `Number` cells, assert primitive `number` and `Object.is()` equality. Also assert `.formula` is unset, `.hyperlink` is unset, sheet count is 1, sheet name is `Data`, no unexpected occupied cells and workbook opens in Excel and LibreOffice.
