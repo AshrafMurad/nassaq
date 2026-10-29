@@ -48,6 +48,8 @@ export const en: Translation = {
   parsingDetecting: 'Detecting separator…',
   parsingParsing: 'Parsing CSV…',
   parsingValidating: 'Validating structure…',
+  parsingGeneratingXlsx: 'Generating safe workbook…',
+  parsingVerifyingXlsx: 'Verifying data integrity…',
 
   // Encoding review
   encodingReviewTitle: 'Confirm encoding',
@@ -78,6 +80,8 @@ export const en: Translation = {
   errorFileTooLarge: 'File exceeds the 2 MiB limit.',
   errorNoDataRows: 'No data rows available for export.',
   errorZeroColumns: 'No columns were found in the file.',
+  errorExportFailed: 'Failed to generate the Excel workbook.',
+  errorVerifyFailed: 'Verification check failed: {{detail}}.',
 
   // Summary / parse result
   parseResultTitle: 'Parse result',
@@ -127,4 +131,22 @@ export const en: Translation = {
   newlineIndicator: 'Newline',
   columnLetter: 'Col {{letter}}',
   createActionHelp: 'Settings confirmed and sample reviewed safely',
+
+  // Phase 4: Safe XLSX and verification
+  validationSuccessTitle: 'Workbook verified successfully',
+  validationSuccessBody:
+    'Every single cell, type, and dimension was checked after read-back. No formulas or external links were introduced.',
+  validationFailedTitle: 'Verification failed — download blocked',
+  validationFailedBody:
+    'A mismatch was detected between the canonical data and the generated workbook. Download is blocked to protect data integrity.',
+  validationFailureCoord: 'Mismatch detected at Row {{row}}, Column {{col}}.',
+  validationFailureGeneric: 'Reason: {{reason}}.',
+  manifestTextCells: 'Text cells',
+  manifestNumberCells: 'Numeric cells',
+  manifestEmptyCells: 'Empty cells',
+  manifestTotalCells: 'Total cells verified',
+  manifestVerifiedAt: 'Verified at',
+  downloadButton: 'Download verified XLSX',
+  downloadReady: 'Your safe Excel workbook is ready.',
+  generatingWorkbook: 'Building and verifying…',
 };

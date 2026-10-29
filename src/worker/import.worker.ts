@@ -10,8 +10,11 @@
  *   6. Structural validation and limit checks
  *   7. READY response with summary + preview (full table stays in worker scope)
  *
- * The worker does NOT automatically discard stale results; the client terminates
- * and recreates the worker for each new job to ensure cancellation.
+ * Receives an EXPORT request:
+ *   1. Generates single 'Data' sheet XLSX via ExcelJS
+ *   2. Re-loads the buffer and verifies all dimensions, cell types, values, formula absence
+ *   3. Transfers verified buffer and manifest via EXPORT_READY on 100% pass
+ *   4. Fails closed with VERIFY_FAILED on any mismatch
  */
 
 import type {
@@ -19,6 +22,7 @@ import type {
   WorkerMessage,
   SupportedEncoding,
   DelimiterChar,
+  ParseSummary,
 } from '@/domain/protocol';
 import { MAX_FILE_BYTES } from '@/domain/limits';
 import {
@@ -27,22 +31,51 @@ import {
   hasBinaryContent,
 } from '@/domain/encoding';
 import { detectDelimiter } from '@/domain/delimiter';
-import { parseRawCsv, removePhantomTrailingRecord, validateAndSummarize } from '@/domain/csv';
+import {
+  parseRawCsv,
+  removePhantomTrailingRecord,
+  validateAndSummarize,
+} from '@/domain/csv';
+import { generateAndVerifyXlsx } from './xlsx-adapter';
+
+interface ActiveJob {
+  jobId: string;
+  records: string[][];
+  summary: ParseSummary;
+}
+
+let activeJob: ActiveJob | null = null;
 
 function post(msg: WorkerMessage): void {
   self.postMessage(msg);
 }
 
-self.onmessage = (event: MessageEvent<WorkerRequest>) => {
+self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
 
   if (req.type === 'CANCEL') {
-    // Worker is terminated externally; nothing to do.
+    activeJob = null;
     return;
   }
 
   if (req.type === 'PARSE') {
-    handleParse(req.jobId, req.buffer, req.encoding, req.delimiter, req.firstRowIsHeader);
+    activeJob = null;
+    handleParse(
+      req.jobId,
+      req.buffer,
+      req.encoding,
+      req.delimiter,
+      req.firstRowIsHeader,
+    );
+    return;
+  }
+
+  if (req.type === 'EXPORT') {
+    await handleExport(
+      req.jobId,
+      req.columnTypes,
+      req.firstRowIsHeader,
+    );
   }
 };
 
@@ -167,6 +200,64 @@ function handleParse(
     return;
   }
 
+  // Retain parsed table in worker memory for safe export
+  activeJob = {
+    jobId,
+    records,
+    summary: result.summary,
+  };
+
   // ── Phase 7: Ready ────────────────────────────────────────────────────
   post({ type: 'READY', jobId, summary: result.summary });
+}
+
+async function handleExport(
+  jobId: string,
+  columnTypes: Record<number, 'text' | 'number'>,
+  firstRowIsHeader: boolean,
+): Promise<void> {
+  if (!activeJob || activeJob.jobId !== jobId) {
+    post({
+      type: 'ERROR',
+      jobId,
+      code: 'EXPORT_FAILED',
+      detail: 'JOB_MISMATCH',
+    });
+    return;
+  }
+
+  post({ type: 'PROGRESS', jobId, phase: 'generating-xlsx' });
+
+  const result = await generateAndVerifyXlsx(
+    activeJob.records,
+    columnTypes,
+    firstRowIsHeader,
+  );
+
+  if (!result.ok) {
+    const detail =
+      result.failure.row !== undefined
+        ? `${result.failure.reason}:${result.failure.row}:${result.failure.column ?? 0}`
+        : result.failure.reason;
+
+    post({
+      type: 'ERROR',
+      jobId,
+      code: 'VERIFY_FAILED',
+      detail,
+    });
+    return;
+  }
+
+  // Transfer the generated buffer zero-copy
+  const exportMsg: WorkerMessage = {
+    type: 'EXPORT_READY',
+    jobId,
+    buffer: result.buffer,
+    manifest: result.manifest,
+  };
+  (self as unknown as { postMessage(message: unknown, options?: { transfer?: Transferable[] }): void }).postMessage(
+    exportMsg,
+    { transfer: [result.buffer] },
+  );
 }

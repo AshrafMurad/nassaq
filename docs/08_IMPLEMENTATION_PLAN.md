@@ -170,6 +170,23 @@ requirements from `docs/05_UI_UX_SPECIFICATION.md` and `DESIGN.md` are satisfied
 
 **Objective:** export only an exact **verified** workbook.
 
+**Execution evidence (2026-10-29, branch `feat/phase-4-export`):** Phase 4
+**passed**: strict `npm run typecheck`, 112 Vitest unit tests across 9 test suites
+(`verify.test.ts`, `xlsx-adapter.test.ts`, `download.test.ts`, `risks.test.ts`,
+`numeric-policy.test.ts`, `encoding.test.ts`, `limits.test.ts`, `delimiter.test.ts`,
+`csv.test.ts`), production `vite build` (static `dist/` with isolated `import.worker` chunk),
+and 108 Playwright E2E checks (36 test cases × Chromium/Firefox/WebKit) across
+`shell.spec.ts`, `phase2.spec.ts`, `phase3.spec.ts`, and `phase4.spec.ts`.
+Delivered modules:
+`src/domain/export-manifest.ts` (manifest and failure data contracts),
+`src/domain/verify.ts` (pure domain verification algorithm checking single 'Data' sheet, exact grid bounds, strict cell types and values, total formula/hyperlink absence, and no unexpected out-of-bounds cells without disclosing private cell content),
+`src/worker/xlsx-adapter.ts` (ExcelJS generation and read-back loader returning verified ArrayBuffer on 100% pass),
+`src/lib/download.ts` (sanitized export filename, Blob URL lifecycle, safe local download trigger),
+`src/components/import/ValidationResult.tsx` (accessible AR/EN verification result banner with aggregate cell counts and coordinates on failure),
+`src/components/import/DownloadAction.tsx` (primary action button, progress spinner, verified download trigger),
+`src/domain/protocol.ts` and `src/worker/import.worker.ts` (worker export RPC and active parsed table retention),
+and `src/components/import/ImportDetails.tsx` (integrated review, verification, and download lifecycle). All data-integrity invariants from `docs/04_DATA_INTEGRITY_AND_VALIDATION.md` and UI requirements from `docs/05_UI_UX_SPECIFICATION.md` and `DESIGN.md` are satisfied.
+
 **Tasks:** writer adapter in worker, one `Data` worksheet, text literal assignments, verified approved Number conversions, no formula/hyperlink objects, preserve empty fields, generate ArrayBuffer, re-open with ExcelJS, verify each row/column/text/number type/value, dimensions and formula absence, return bytes only on full pass, sanitized local download, cleanup old object URLs.
 
 **Expected modules:** `src/domain/export-manifest.ts`, `src/worker/xlsx-adapter.ts`, `src/domain/verify.ts`, `src/lib/download.ts`, `src/components/import/ValidationResult.tsx`, `src/components/import/DownloadAction.tsx`.
