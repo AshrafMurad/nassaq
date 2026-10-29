@@ -107,6 +107,22 @@ Physical-device and screen-reader smoke remain manual release follow-ups.
 
 **Objective:** immutable byte→reviewable parsed table, no silent coercion.
 
+**Execution evidence (2026-10-29, branch eat/phase-2-worker):** Phase 2
+**passed**: strict pm run typecheck, 66 Vitest unit tests across 4 test suites
+(encoding.test.ts, delimiter.test.ts, csv.test.ts, limits.test.ts), production
+ite build (static dist/ with isolated import.worker chunk), and 72 Playwright
+checks (24 test cases × Chromium/Firefox/WebKit). Delivered modules:
+src/domain/limits.ts (caps: 2 MiB, 10k data rows, 50 columns, 100k cells, 32,767
+UTF-16 units/cell), src/domain/protocol.ts (typed worker RPC messages with jobId),
+src/domain/encoding.ts (strict UTF-8 BOM/non-BOM, legacy Windows-1256/ISO-8859-6,
+binary detection), src/domain/delimiter.ts (deterministic scoring over comma/semicolon/tab/pipe
+with multi-column weighting), src/domain/csv.ts (strict Papa Parse string arrays,
+phantom newline removal, uneven-row detection, structural validation),
+src/worker/import.worker.ts (dedicated Web Worker pipeline), and src/lib/worker-client.ts\r
+(lifecycle, cancellation, zero-copy ArrayBuffer transfer). All data-integrity invariants
+from docs/04_DATA_INTEGRITY_AND_VALIDATION.md and docs/03_CSV_PARSING_AND_ENCODING.md\r
+are respected. Zero vulnerabilities in npm audit (vitest upgraded to 5.0.5).
+
 **Tasks:** typed worker request/response messages, transfer input bytes, strict UTF-8/BOM, manually selectable Windows-1256/ISO-8859-6, delimiter candidates, Papa quote-aware parser as string arrays, limits and errors, safe final-newline semantics, 20-row preview and full-file metadata. Return only summary+sample to UI; data stays in worker. Disallow stale jobs; cancel/reset via terminate/recreate.
 
 **Expected modules:** `src/worker/import.worker.ts`, `src/domain/encoding.ts`, `src/domain/delimiter.ts`, `src/domain/csv.ts`, `src/domain/limits.ts`, `src/domain/protocol.ts`, `src/lib/worker-client.ts`.
