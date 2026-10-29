@@ -53,12 +53,15 @@ export const ar = {
     'يحتوي الملف على محارف غير ASCII. تأكّد من أن المعاينة صحيحة قبل المتابعة.',
   encodingConfirm: 'المحتوى صحيح، تابع',
   encodingChange: 'اختر طريقة قراءة أخرى',
+  encodingDetectedBom: 'تم اكتشاف الترميز من الملف (UTF-8 BOM)',
+  encodingSuggested: 'مقترح — تحقق من المعاينة أدناه',
 
   // Delimiter review
   delimiterReviewTitle: 'اختر الفاصل',
   delimiterReviewTie: 'تعذّر اختيار الفاصل تلقائيًا. اختر الفاصل المناسب.',
   delimiterReviewSingleCol: 'لم يُنتج أي فاصل أعمدة متعددة. اختر الفاصل يدويًا.',
   delimiterReviewFewRecords: 'العيّنة صغيرة جدًا للاكتشاف التلقائي. اختر الفاصل.',
+  delimiterHelp: 'غير متأكد؟ قارن الأعمدة في جدول المعاينة أدناه.',
   delimiterComma: 'فاصلة (,)',
   delimiterSemicolon: 'فاصلة منقوطة (;)',
   delimiterTab: 'مسافة جدولة (Tab)',
@@ -84,6 +87,44 @@ export const ar = {
   parseYes: 'نعم',
   parseNo: 'لا',
   parseUnevenWarning: 'تحذير: بعض الصفوف تحتوي على عدد مختلف من الأعمدة.',
+
+  // Phase 3: Risk review & safe type policy
+  stepReviewTitle: 'مراجعة الإعدادات والبيانات',
+  riskSummaryTitle: '{{count}} قيمة تحتاج مراجعة',
+  riskSummarySub: 'ستبقى كافة القيم كنصوص مطابقة في Excel لحمايتها من التشويه ما لم تختر تحويل عمود صراحةً إلى أرقام.',
+  riskNoneTitle: 'كافة القيم سليمة للتصدير الآمن',
+  riskNoneSub: 'لم يُرصد أي نمط ملتبس؛ سيتم حفظ كل خلية نصيًا كما هي.',
+  riskLeadingZero: 'أصفار في البداية أو أرقام هواتف',
+  riskLongNumber: 'معرّفات رقمية طويلة (>15 رقمًا)',
+  riskDateShaped: 'رموز تشبه التواريخ',
+  riskScientific: 'أرقام بصيغة علمية (E)',
+  riskDecimalComma: 'فواصل عشرية ملتبسة',
+  riskFormulaLike: 'رموز تبدأ ببادئات دوال (=، +، -، @)',
+  riskMixedDirection: 'نصوص مختلطة الاتجاه',
+
+  columnTypeLabel: 'نوع العمود {{col}}',
+  columnTypeText: 'احتفظ بالنص (موصى به)',
+  columnTypeNumber: 'تحويل إلى رقم',
+  columnHeaderLabel: 'العمود {{letter}}: {{name}}',
+
+  numericBlockedTitle: 'تم حظر التحويل إلى أرقام للعمود {{col}}',
+  numericBlockedReasonGrammar: 'الصف(وف) {{rows}} تحتوي على أصفار بادئة، أو أحرف، أو مسافات.',
+  numericBlockedReasonPrecision: 'الصف(وف) {{rows}} تحتوي على أكثر من 15 رقمًا معنويًا.',
+  numericBlockedReasonIdentifier: 'الصف(وف) {{rows}} تحتوي على 16 رقمًا أو أكثر (خطر تشويه معرّف رقمي).',
+  numericBlockedReasonSafeInteger: 'الصف(وف) {{rows}} تتجاوز الحد الأقصى للأرقام الصحيحة الدقيقة.',
+  numericBlockedReasonRoundtrip: 'الصف(وف) {{rows}} ستفقد دقتها أو أصفارها العشرية (مثل 0.10 أو 2.50).',
+  numericBlockedReasonEmpty: 'هذا العمود فارغ تمامًا ولا يحتوي على أرقام.',
+  numericBlockedDismiss: 'احتفظ به كنص',
+  numericApprovedNotice: 'يستوفي العمود كافة شروط الأرقام الصارمة وسيتم تصديره كأرقام في Excel.',
+
+  previewHeading: 'معاينة البيانات',
+  previewCaption: 'عرض أول {{shown}} من أصل {{total}} صف بيانات',
+  previewScrollHint: 'مرر أفقيًا لعرض بقية الأعمدة',
+  emptyCellLabel: '(فارغ)',
+  whitespaceIndicator: 'مسافات محيطة',
+  newlineIndicator: 'سطر جديد',
+  columnLetter: 'عمود {{letter}}',
+  createActionHelp: 'تم تأكيد الإعدادات ومراجعة العيّنة بأمان',
 };
 
 export type Translation = typeof ar;

@@ -133,6 +133,33 @@ are respected. Zero vulnerabilities in npm audit (vitest upgraded to 5.0.5).
 
 **Objective:** user can see ambiguous import choices and inspect risks before export.
 
+**Execution evidence (2026-10-29, branch `feat/phase-3-review`):** Phase 3
+**passed**: strict `npm run typecheck`, 95 Vitest unit tests across 6 test suites
+(`risks.test.ts`, `numeric-policy.test.ts`, `encoding.test.ts`, `delimiter.test.ts`,
+`limits.test.ts`, `csv.test.ts`), production `vite build` (static `dist/` with
+isolated `import.worker` chunk), and 99 Playwright E2E checks (33 test cases ×
+Chromium/Firefox/WebKit) across `shell.spec.ts`, `phase2.spec.ts`, and `phase3.spec.ts`.
+Delivered modules:
+`src/domain/risks.ts` (cell & full-table risk scanner for LEADING_ZERO, LONG_NUMBER,
+DATE_SHAPED, SCIENTIFIC_NOTATION, DECIMAL_SEPARATOR_AMBIGUITY, FORMULA_LIKE,
+MIXED_DIRECTION), `src/domain/numeric-policy.ts` (strict full-column numeric gate
+enforcing ASCII canonical grammar, safe integers, 15 significant digits cap, identifier
+risk protection, lexical roundtrip preservation `String(Number(token)) === token`,
+and reporting up to 5 failing row coordinates without disclosing cell content),
+`src/domain/protocol.ts` and `src/domain/csv.ts` (worker off-thread risk and numeric
+column analysis), `src/components/import/EncodingSelector.tsx` (UTF-8 BOM detection vs
+suggestion, Windows-1256, ISO-8859-6), `src/components/import/DelimiterSelector.tsx`
+(interactive separator buttons re-parsing from raw bytes),
+`src/components/import/HeaderModeToggle.tsx` (accessible header toggle),
+`src/components/import/ColumnTypeSelector.tsx` (per-column Text/Number selector with
+blocking alert on ineligible columns), `src/components/import/RiskSummary.tsx` (summary
+strip with category breakdowns), `src/components/import/DataPreviewTable.tsx` (semantic
+accessible table with `<bdi dir="auto">`, column letter headers, row indices, empty/newline/space
+indicators, and cell risk flags), `src/app/import-state.ts` (review state management),
+and `src/components/import/ImportDetails.tsx` (coordinated review workflow). All
+data-integrity invariants from `docs/04_DATA_INTEGRITY_AND_VALIDATION.md` and UI
+requirements from `docs/05_UI_UX_SPECIFICATION.md` and `DESIGN.md` are satisfied.
+
 **Tasks:** file details, encoding/delimiter selectors, header toggle, preview table, risk flags for zeros/IDs/dates/formulas, Text default per column, opt-in Number with full-column strict gate, loading/error states, invalidation on option change. User can change encoding and delimiter from the **raw bytes**.
 
 **Expected modules:** `src/domain/risks.ts`, `src/domain/numeric-policy.ts`, `src/components/import/{EncodingSelector,DelimiterSelector,DataPreviewTable,RiskSummary,ColumnTypeSelector}.tsx`, `src/app/import-state.ts`.

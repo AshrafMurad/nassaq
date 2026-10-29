@@ -280,6 +280,32 @@ describe('validateAndSummarize', () => {
       expect(result.summary.columnMeta[1]?.nonEmptyCount).toBe(2);
     }
   });
+
+  it('evaluates column numeric eligibility and risk counts', () => {
+    const result = validate([
+      ['Nums', 'Codes', 'Mixed'],
+      ['10', '001', 'أحمد'],
+      ['2.5', '03-04', 'Smith'],
+      ['3', '12345678901234567890', '=1+1'],
+    ]);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Column 0 is valid numeric
+      expect(result.summary.columnMeta[0]?.isNumericEligible).toBe(true);
+      // Column 1 has leading zero, date-shaped, long id -> ineligible
+      expect(result.summary.columnMeta[1]?.isNumericEligible).toBe(false);
+      expect(result.summary.columnMeta[1]?.numericIneligibleSampleRows).toContain(2);
+      // Column 2 has formula and text -> ineligible
+      expect(result.summary.columnMeta[2]?.isNumericEligible).toBe(false);
+
+      // Risk summary checks
+      expect(result.summary.riskSummary.LEADING_ZERO).toBe(1);
+      expect(result.summary.riskSummary.DATE_SHAPED).toBe(1);
+      expect(result.summary.riskSummary.LONG_NUMBER).toBe(1);
+      expect(result.summary.riskSummary.FORMULA_LIKE).toBe(1);
+      expect(result.summary.totalRisks).toBeGreaterThanOrEqual(4);
+    }
+  });
 });
 
 // ── concrete expected cases from doc 03 §7 ───────────────────────────────

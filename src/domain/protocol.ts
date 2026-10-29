@@ -4,6 +4,8 @@
  * discarded before the worker is terminated.
  */
 
+import type { RiskCategory } from './risks';
+
 // ---------------------------------------------------------------------------
 // Supported encoding identifiers
 // ---------------------------------------------------------------------------
@@ -93,6 +95,14 @@ export interface ColumnMeta {
   label: string;
   /** Total non-empty cells in this column (data rows only). */
   nonEmptyCount: number;
+  /** Whether the column meets all strict numeric criteria across all data rows. */
+  isNumericEligible: boolean;
+  /** Primary rejection reason code if ineligible for number mode. */
+  numericIneligibleReason?: string;
+  /** 1-based row indices of up to 5 earliest failures. */
+  numericIneligibleSampleRows?: number[];
+  /** Breakdown of risks in this column. */
+  riskCounts: Record<RiskCategory, number>;
 }
 
 /** Summary returned when parsing completes successfully. */
@@ -125,6 +135,10 @@ export interface ParseSummary {
   hasUnevenRows: boolean;
   /** Row indices (1-based) of the uneven rows, up to 10 reported. */
   unevenRowIndices: number[];
+  /** Overall risk summary across all data cells. */
+  riskSummary: Record<RiskCategory, number>;
+  /** Total number of cell risk flags detected. */
+  totalRisks: number;
 }
 
 /** Parse completed successfully. */
