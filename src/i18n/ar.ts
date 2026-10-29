@@ -147,6 +147,26 @@ export const ar = {
   downloadButton: 'تحميل ملف XLSX المعتمد',
   downloadReady: 'ملف Excel الآمن جاهز للتحميل.',
   generatingWorkbook: 'جاري البناء والتحقق…',
+
+  // Phase 5: Privacy disclosure
+  privacyModalTitle: 'كيف تعمل الخصوصية في نسّق',
+  privacyModalClose: 'إغلاق',
+  privacyOpenButton: 'الخصوصية وآلية العمل',
+  privacyItemLocalTitle: 'معالجة محلية 100% داخل جهازك',
+  privacyItemLocalDesc:
+    'تتم قراءة ملف CSV وتحليله وتحويله بواسطة Web Worker يعمل بالكامل داخل متصفحك. لا يتم إرسال أي محتوى أو خلايا أو أسماء ملفات أو دفاتر عمل إلى أي خادم خارجي أو طرف ثالث.',
+  privacyItemNoTrackTitle: 'بدون أي تتبع أو إعلانات أو ملفات تعريف',
+  privacyItemNoTrackDesc:
+    'لا يحتوي نسّق على أي برمجيات تتبع أو تحليلات (Analytics) أو إعلانات، ولا يُنشئ أي ملفات تعريف ارتباط (Cookies) للمتابعة.',
+  privacyItemEphemeralTitle: 'بيانات مؤقتة تنتهي بانتهاء الجلسة',
+  privacyItemEphemeralDesc:
+    'تبقى بياناتك في الذاكرة العشوائية المؤقتة لعلامة التبويب النشطة فقط. بمجرد النقر على "اختيار ملف آخر" أو إغلاق الصفحة، يتم إتلاف البيانات فوراً دون تخزينها في localStorage أو IndexedDB.',
+  privacyItemHostingTitle: 'الاستضافة الثابتة والروابط الخارجية',
+  privacyItemHostingDesc:
+    'يتم تنزيل كود الموقع الثابت من خادم الاستضافة (الذي قد يسجل اتصالات HTTP الاعتيادية كعنوان IP ونوع المتصفح). النقر على رابط مستودع GitHub ينقلك إلى منصتهم المستقلة.',
+  privacyItemSecurityTitle: 'برمجيات مفتوحة المصدر والإبلاغ الأمني',
+  privacyItemSecurityDesc:
+    'نسّق برمجية حرة ومفتوحة المصدر بالكامل برخصة MIT. إذا اكتشفت أي ملاحظة أمنية أو خطأ في دقة معالجة البيانات، نرحب بإبلاغنا عبر تبويب الأمان في GitHub.',
 };
 
 export type Translation = typeof ar;

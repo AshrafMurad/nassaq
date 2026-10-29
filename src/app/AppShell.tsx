@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Languages } from 'lucide-react';
+import { Languages, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PrivacyModal } from '@/components/import/PrivacyModal';
 import { type Locale } from '@/i18n';
 
 const REPOSITORY_URL = 'https://github.com/AshrafMurad/nassaq';
@@ -56,6 +57,7 @@ function RepositoryLink() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   return (
     <div className="flex min-h-dvh flex-col pt-20">
@@ -86,7 +88,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               {t('appName')}
             </span>
           </span>
-          <span className="flex items-center gap-3">
+          <span className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPrivacyOpen(true)}
+              aria-label={t('privacyOpenButton')}
+              data-testid="privacy-open-button"
+            >
+              <ShieldCheck className="size-4 text-primary" aria-hidden="true" />
+              <span className="hidden sm:inline">{t('privacyOpenButton')}</span>
+            </Button>
             <LanguageToggle />
             <RepositoryLink />
           </span>
@@ -101,7 +113,14 @@ export function AppShell({ children }: { children: ReactNode }) {
       </main>
       <footer className="border-t-2 border-black bg-charcoal text-sage">
         <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-5 py-6 text-sm sm:px-8">
-          <p>{t('privacy')}</p>
+          <button
+            type="button"
+            onClick={() => setPrivacyOpen(true)}
+            className="cursor-pointer text-start text-sage underline underline-offset-4 hover:text-white"
+            data-testid="footer-privacy-button"
+          >
+            {t('privacy')}
+          </button>
           <p>
             {t('appName')} ·{' '}
             <a
@@ -115,6 +134,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </p>
         </div>
       </footer>
+
+      <PrivacyModal isOpen={privacyOpen} onClose={() => setPrivacyOpen(false)} />
     </div>
   );
 }

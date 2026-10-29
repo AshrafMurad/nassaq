@@ -1,0 +1,6 @@
+prefix,formula
+"equals","=SUM(1,2)"
+"plus","+SUM(1,2)"
+"minus","-1+2"
+"at","@SUM(1,2)"
+"tab-equals","	=1+1"

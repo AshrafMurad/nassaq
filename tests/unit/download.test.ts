@@ -31,4 +31,23 @@ describe('sanitizeExportFilename', () => {
   it('removes control characters and unsafe filesystem characters', () => {
     expect(sanitizeExportFilename('test\x00file*name?.csv')).toBe('testfilename.xlsx');
   });
+
+  it('strips bidi override and directional formatting characters', () => {
+    // RLO (\u202E), LRM (\u200E), RLM (\u200F), ALM (\u061C)
+    const dangerous = 'safe\u202Eexe.csv';
+    expect(sanitizeExportFilename(dangerous)).toBe('safeexe.xlsx');
+
+    const bidiArabic = '\u200Eتقرير\u200F_الموظفين\u061C.csv';
+    expect(sanitizeExportFilename(bidiArabic)).toBe('تقرير_الموظفين.xlsx');
+  });
+
+  it('enforces maximum length cap on basename', () => {
+    const longName = 'a'.repeat(150) + '.csv';
+    const sanitized = sanitizeExportFilename(longName);
+    expect(sanitized).toBe('a'.repeat(100) + '.xlsx');
+  });
+
+  it('handles .txt extension gracefully', () => {
+    expect(sanitizeExportFilename('data-export.txt')).toBe('data-export.xlsx');
+  });
 });
