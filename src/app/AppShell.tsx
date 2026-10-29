@@ -40,15 +40,16 @@ function LanguageToggle() {
 function RepositoryLink() {
   const { t } = useTranslation();
   return (
-    <Button variant="ghost" size="sm" asChild>
+    <Button variant="outline" size="sm" asChild>
       <a
         href={REPOSITORY_URL}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={t('viewOnGithub')}
+        title={t('viewOnGithub')}
         data-testid="github-link"
       >
-        <GithubMark className="size-4" />
+        <GithubMark className="size-4 shrink-0" />
         <span aria-hidden="true" className="hidden sm:inline">GitHub</span>
       </a>
     </Button>
@@ -127,9 +128,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               href={REPOSITORY_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="neo-focus inline-flex min-h-11 items-center rounded-lg border-2 border-black bg-yellow px-3 font-bold text-black underline underline-offset-4 [--ring:#ffe17c] hover:bg-sage"
+              className="neo-focus inline-flex min-h-11 items-center gap-2 rounded-lg border-2 border-black bg-yellow px-3 font-bold text-black underline underline-offset-4 [--ring:#ffe17c] hover:bg-sage"
             >
-              GitHub
+              <GithubMark className="size-4 shrink-0" />
+              <span>GitHub</span>
             </a>
           </p>
         </div>
