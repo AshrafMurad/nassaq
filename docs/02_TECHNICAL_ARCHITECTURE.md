@@ -45,7 +45,7 @@ The CSV is **untrusted local content**. React renders its cells as escaped text,
 **Phase 0 result (2026-10-28):** ExcelJS 4.4.0 and Papa Parse 5.7.0 passed the
 Vite 8.3.5 module-worker probe in Chromium, Firefox and WebKit, including literal
 empty strings, Arabic, formula-looking text, transferable bytes and downloaded
-XLSX comparison. No writer substitution is needed. See `PHASE_0_REPORT.md` for
+XLSX comparison. No writer substitution is needed. See `XLSX_WORKER_FEASIBILITY.md` for
 benchmarks, bundle size, reviewed moderate audit findings and release limitations.
 Papa runs with `worker:false` inside the dedicated worker. Offline processing is
 proven with that worker already loaded and retained; creating a new worker after

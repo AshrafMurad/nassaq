@@ -113,7 +113,7 @@ Long-term maintenance: at least occasional dependency security reviews, browser 
 Licensing checked against [ExcelJS](https://github.com/exceljs/exceljs), [SheetJS CE](https://docs.sheetjs.com/docs/miscellany/license/) and [SheetJS installation documentation](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/). Static deployment capabilities documented by [Vite](https://vite.dev/guide/static-deploy.html).
 
 **Phase 0:** installed dependency/license inventory, npm audit, three-engine worker
-interoperability and static-preview downloads are recorded in `PHASE_0_REPORT.md`.
+interoperability and static-preview downloads are recorded in `XLSX_WORKER_FEASIBILITY.md`.
 The undeclared-license Node-only `buffers` package is absent from ExcelJS's mapped
 browser bundle and must not be distributed as part of a Node dependency tree.
 Ship `dist/` only. Full browser-vendored dependency attribution, current advisory
