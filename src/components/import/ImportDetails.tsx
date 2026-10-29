@@ -1,7 +1,7 @@
 /**
- * ImportDetails — Phase 3
+ * ImportDetails — Phase 4
  *
- * Shown after a file is selected. Manages the worker parse lifecycle:
+ * Shown after a file is selected. Manages the worker parse & export lifecycle:
  *  - Automatically starts a parse job when mounted with a new file.
  *  - Shows progress spinner during decoding / parsing.
  *  - Shows ENCODING_REVIEW notice when non-ASCII UTF-8 detected (non-blocking).
@@ -12,7 +12,7 @@
  *     - Displays RiskSummary (breakdown of leading zeros, long IDs, date-shapes, formulas, etc.)
  *     - Displays DataPreviewTable (up to 20 rows, escaped safe text, cell risk badges, ColumnTypeSelector per column)
  *     - Displays ParseResultSummary (rows, columns, encoding, delimiter, uneven rows)
- *     - Displays primary "Create safe Excel" CTA
+ *     - Displays DownloadAction (triggers safe XLSX generation, displays read-back verification result, enables download)
  *  - Shows ParseError when the worker returns an error.
  */
 
@@ -23,7 +23,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  FileCheck,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkerClient } from '@/lib/worker-client';
@@ -33,6 +32,8 @@ import { DelimiterSelector } from './DelimiterSelector';
 import { HeaderModeToggle } from './HeaderModeToggle';
 import { RiskSummary } from './RiskSummary';
 import { DataPreviewTable } from './DataPreviewTable';
+import { DownloadAction } from './DownloadAction';
+import { triggerFileDownload, revokeDownloadUrl } from '@/lib/download';
 import { updateColumnType, type ColumnType } from '@/app/import-state';
 import type { Ref } from 'react';
 import type {
@@ -44,6 +45,11 @@ import type {
   DelimiterChar,
   ProgressPhase,
 } from '@/domain/protocol';
+import type {
+  ExportManifest,
+  VerificationFailure,
+  VerificationFailureReason,
+} from '@/domain/export-manifest';
 
 interface ImportDetailsProps {
   file: File;
@@ -59,13 +65,21 @@ type ParseState =
   | { status: 'ready'; summary: ParseSummary }
   | { status: 'error'; err: WorkerMsgError };
 
+type ExportState =
+  | { status: 'idle' }
+  | { status: 'exporting'; phase: ProgressPhase }
+  | { status: 'verified'; buffer: ArrayBuffer; manifest: ExportManifest }
+  | { status: 'failed'; failure: VerificationFailure };
+
 export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps) {
   const { t, i18n: instance } = useTranslation();
   const sizeText = new Intl.NumberFormat(instance.language).format(file.size);
 
   const clientRef = useRef<WorkerClient | null>(null);
+  const activeBlobUrlRef = useRef<string | null>(null);
 
   const [parseState, setParseState] = useState<ParseState>({ status: 'idle' });
+  const [exportState, setExportState] = useState<ExportState>({ status: 'idle' });
   const [encoding, setEncoding] = useState<SupportedEncoding>('utf-8');
   const [delimiter, setDelimiter] = useState<DelimiterChar | undefined>(undefined);
   const [firstRowIsHeader, setFirstRowIsHeader] = useState(true);
@@ -82,6 +96,9 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
       }
       const client = clientRef.current;
 
+      revokeDownloadUrl(activeBlobUrlRef.current);
+      activeBlobUrlRef.current = null;
+      setExportState({ status: 'idle' });
       setParseState({ status: 'parsing', phase: 'decoding' });
 
       client.parse(
@@ -89,7 +106,11 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
         { encoding: enc, delimiter: delim, firstRowIsHeader: header },
         {
           onProgress: (msg) => {
-            setParseState({ status: 'parsing', phase: msg.phase });
+            if (msg.phase === 'generating-xlsx' || msg.phase === 'verifying-xlsx') {
+              setExportState({ status: 'exporting', phase: msg.phase });
+            } else {
+              setParseState({ status: 'parsing', phase: msg.phase });
+            }
           },
           onEncodingReview: (msg) => {
             setParseState({
@@ -104,8 +125,32 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
           onReady: (msg) => {
             setParseState({ status: 'ready', summary: msg.summary });
           },
+          onExportReady: (msg) => {
+            setExportState({
+              status: 'verified',
+              buffer: msg.buffer,
+              manifest: msg.manifest,
+            });
+          },
           onError: (msg) => {
-            setParseState({ status: 'error', err: msg });
+            if (msg.code === 'VERIFY_FAILED') {
+              let failure: VerificationFailure = { reason: 'CORRUPT_XLSX' };
+              if (msg.detail) {
+                const parts = msg.detail.split(':');
+                const reason = parts[0] as VerificationFailureReason;
+                const row = parts[1] ? Number(parts[1]) : undefined;
+                const column = parts[2] ? Number(parts[2]) : undefined;
+                failure = { reason, row, column };
+              }
+              setExportState({ status: 'failed', failure });
+            } else if (msg.code === 'EXPORT_FAILED') {
+              setExportState({
+                status: 'failed',
+                failure: { reason: 'CORRUPT_XLSX' },
+              });
+            } else {
+              setParseState({ status: 'error', err: msg });
+            }
           },
         },
       );
@@ -117,6 +162,7 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
   useEffect(() => {
     startParse(encoding, delimiter, firstRowIsHeader);
     return () => {
+      revokeDownloadUrl(activeBlobUrlRef.current);
       clientRef.current?.terminate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,12 +191,35 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
     startParse(encoding, delimiter, firstRowIsHeader);
   };
 
+  const handleColumnTypeChange = (c: number, type: ColumnType) => {
+    setColumnTypes((prev) => updateColumnType(prev, c, type));
+    if (exportState.status !== 'idle') {
+      revokeDownloadUrl(activeBlobUrlRef.current);
+      activeBlobUrlRef.current = null;
+      setExportState({ status: 'idle' });
+    }
+  };
+
+  const handleExport = () => {
+    if (!clientRef.current || parseState.status !== 'ready') return;
+    setExportState({ status: 'exporting', phase: 'generating-xlsx' });
+    clientRef.current.exportXlsx(columnTypes, firstRowIsHeader);
+  };
+
+  const handleDownload = () => {
+    if (exportState.status !== 'verified') return;
+    const { url } = triggerFileDownload(exportState.buffer, file.name);
+    activeBlobUrlRef.current = url;
+  };
+
   function progressLabel(phase: ProgressPhase): string {
     switch (phase) {
       case 'decoding': return t('parsingDecoding');
       case 'detecting-delimiter': return t('parsingDetecting');
       case 'parsing': return t('parsingParsing');
       case 'validating': return t('parsingValidating');
+      case 'generating-xlsx': return t('parsingGeneratingXlsx');
+      case 'verifying-xlsx': return t('parsingVerifyingXlsx');
       default: return t('parsing');
     }
   }
@@ -166,6 +235,8 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
       case 'FILE_TOO_LARGE': return t('errorFileTooLarge');
       case 'NO_DATA_ROWS': return t('errorNoDataRows');
       case 'ZERO_COLUMNS': return t('errorZeroColumns');
+      case 'EXPORT_FAILED': return t('errorExportFailed');
+      case 'VERIFY_FAILED': return t('errorVerifyFailed', { detail: d });
       default: return t('badEncode');
     }
   }
@@ -185,7 +256,8 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
           <h2
             ref={headingRef}
             tabIndex={-1}
-            className="neo-focus rounded-sm text-sm text-muted-foreground"
+            className="text-lg font-bold tracking-tight text-charcoal outline-none sm:text-xl"
+            data-testid="selected-file-heading"
           >
             {t('selectedFile')}
           </h2>
@@ -223,20 +295,20 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
           value={encoding}
           hadBom={hadBom}
           onChange={handleEncodingChange}
-          disabled={parseState.status === 'parsing'}
+          disabled={parseState.status === 'parsing' || exportState.status === 'exporting'}
         />
 
         <DelimiterSelector
           value={activeDelimiter}
           onChange={handleDelimiterConfirm}
-          disabled={parseState.status === 'parsing'}
+          disabled={parseState.status === 'parsing' || exportState.status === 'exporting'}
         />
 
         <div className="pt-1">
           <HeaderModeToggle
             checked={firstRowIsHeader}
             onChange={handleHeaderToggle}
-            disabled={parseState.status === 'parsing'}
+            disabled={parseState.status === 'parsing' || exportState.status === 'exporting'}
           />
         </div>
       </div>
@@ -345,31 +417,34 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
             <DataPreviewTable
               summary={parseState.summary}
               columnTypes={columnTypes}
-              onColumnTypeChange={(c, type) => {
-                setColumnTypes((prev) => updateColumnType(prev, c, type));
-              }}
+              onColumnTypeChange={handleColumnTypeChange}
             />
 
             {/* 3. Parse Metadata Statistics */}
             <ParseResultSummary summary={parseState.summary} />
 
-            {/* 4. Safe Excel Action Area */}
-            <div className="border-t-2 border-black pt-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-charcoal">{t('create')}</p>
-                  <p className="text-xs text-muted-foreground">{t('createActionHelp')}</p>
-                </div>
-                <Button
-                  size="lg"
-                  className="neo-push min-h-12 border-2 border-black bg-yellow text-base font-extrabold text-black shadow-hard hover:bg-yellow hover:text-black"
-                  data-testid="create-excel-button"
-                >
-                  <FileCheck className="size-5 shrink-0" aria-hidden="true" />
-                  <span>{t('create')}</span>
-                </Button>
-              </div>
-            </div>
+            {/* 4. Safe Excel Action Area with Verification and Download */}
+            <DownloadAction
+              onExport={handleExport}
+              onDownload={handleDownload}
+              isExporting={exportState.status === 'exporting'}
+              isVerified={exportState.status === 'verified'}
+              manifest={
+                exportState.status === 'verified'
+                  ? exportState.manifest
+                  : undefined
+              }
+              failure={
+                exportState.status === 'failed'
+                  ? exportState.failure
+                  : undefined
+              }
+              progressPhase={
+                exportState.status === 'exporting'
+                  ? exportState.phase
+                  : undefined
+              }
+            />
           </div>
         )}
       </div>

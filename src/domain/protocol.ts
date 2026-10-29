@@ -5,6 +5,7 @@
  */
 
 import type { RiskCategory } from './risks';
+import type { ExportManifest } from './export-manifest';
 
 // ---------------------------------------------------------------------------
 // Supported encoding identifiers
@@ -43,18 +44,31 @@ export interface WorkerRequestCancel {
   jobId: string;
 }
 
-export type WorkerRequest = WorkerRequestParse | WorkerRequestCancel;
+/** Request workbook generation and mandatory verification. */
+export interface WorkerRequestExport {
+  type: 'EXPORT';
+  jobId: string;
+  columnTypes: Record<number, 'text' | 'number'>;
+  firstRowIsHeader: boolean;
+}
+
+export type WorkerRequest =
+  | WorkerRequestParse
+  | WorkerRequestCancel
+  | WorkerRequestExport;
 
 // ---------------------------------------------------------------------------
 // Messages sent FROM the worker TO the main thread
 // ---------------------------------------------------------------------------
 
-/** Encoding or parsing progress phase indicator. */
+/** Encoding, parsing, or XLSX generation/verification progress phase indicator. */
 export type ProgressPhase =
   | 'decoding'
   | 'detecting-delimiter'
   | 'parsing'
-  | 'validating';
+  | 'validating'
+  | 'generating-xlsx'
+  | 'verifying-xlsx';
 
 export interface WorkerMsgProgress {
   type: 'PROGRESS';
@@ -148,6 +162,14 @@ export interface WorkerMsgReady {
   summary: ParseSummary;
 }
 
+/** XLSX generation and verification completed successfully. */
+export interface WorkerMsgExportReady {
+  type: 'EXPORT_READY';
+  jobId: string;
+  buffer: ArrayBuffer;
+  manifest: ExportManifest;
+}
+
 /** Stable error codes for the import pipeline. */
 export type ImportErrorCode =
   | 'DECODE_FAILED'
@@ -158,7 +180,9 @@ export type ImportErrorCode =
   | 'UNSUPPORTED_FILE'
   | 'FILE_TOO_LARGE'
   | 'ZERO_COLUMNS'
-  | 'NO_DATA_ROWS';
+  | 'NO_DATA_ROWS'
+  | 'EXPORT_FAILED'
+  | 'VERIFY_FAILED';
 
 export interface WorkerMsgError {
   type: 'ERROR';
@@ -173,4 +197,5 @@ export type WorkerMessage =
   | WorkerMsgEncodingReview
   | WorkerMsgDelimiterReview
   | WorkerMsgReady
+  | WorkerMsgExportReady
   | WorkerMsgError;

@@ -46,6 +46,8 @@ export const ar = {
   parsingDetecting: 'جارٍ اكتشاف الفاصل…',
   parsingParsing: 'جارٍ تحليل CSV…',
   parsingValidating: 'جارٍ التحقق من البنية…',
+  parsingGeneratingXlsx: 'جارٍ إنشاء ملف Excel الآمن…',
+  parsingVerifyingXlsx: 'جارٍ التحقق من سلامة البيانات…',
 
   // Encoding review
   encodingReviewTitle: 'تأكيد طريقة القراءة',
@@ -76,6 +78,8 @@ export const ar = {
   errorFileTooLarge: 'الملف أكبر من الحد المسموح (2 ميجابايت).',
   errorNoDataRows: 'لا توجد صفوف بيانات قابلة للتصدير.',
   errorZeroColumns: 'لم يُعثر على أعمدة في الملف.',
+  errorExportFailed: 'فشل في إنشاء ملف Excel.',
+  errorVerifyFailed: 'فشل فحص التحقق من المطابقة: {{detail}}.',
 
   // Summary / parse result
   parseResultTitle: 'نتيجة القراءة',
@@ -125,6 +129,24 @@ export const ar = {
   newlineIndicator: 'سطر جديد',
   columnLetter: 'عمود {{letter}}',
   createActionHelp: 'تم تأكيد الإعدادات ومراجعة العيّنة بأمان',
+
+  // Phase 4: Safe XLSX and verification
+  validationSuccessTitle: 'تم التحقق من سلامة المصنف بنجاح',
+  validationSuccessBody:
+    'تم فحص ومقارنة كل خلية ونوع وحجم بعد إعادة القراءة بنجاح. لا توجد أي دوال أو روابط خارجية.',
+  validationFailedTitle: 'فشل التحقق — تم حظر التحميل',
+  validationFailedBody:
+    'تم رصد اختلاف بين البيانات الأصلية والمصنف الذي تم إنشاؤه. تم حظر التحميل لحماية سلامة بياناتك.',
+  validationFailureCoord: 'تم رصد اختلاف في الصف {{row}}، العمود {{col}}.',
+  validationFailureGeneric: 'السبب: {{reason}}.',
+  manifestTextCells: 'خلايا نصية',
+  manifestNumberCells: 'خلايا رقمية',
+  manifestEmptyCells: 'خلايا فارغة',
+  manifestTotalCells: 'إجمالي الخلايا المفحوصة',
+  manifestVerifiedAt: 'تم التحقق في',
+  downloadButton: 'تحميل ملف XLSX المعتمد',
+  downloadReady: 'ملف Excel الآمن جاهز للتحميل.',
+  generatingWorkbook: 'جاري البناء والتحقق…',
 };
 
 export type Translation = typeof ar;

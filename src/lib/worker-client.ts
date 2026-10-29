@@ -13,6 +13,7 @@ import type {
   WorkerMsgEncodingReview,
   WorkerMsgDelimiterReview,
   WorkerMsgReady,
+  WorkerMsgExportReady,
   WorkerMsgError,
   SupportedEncoding,
   DelimiterChar,
@@ -23,6 +24,7 @@ export interface WorkerCallbacks {
   onEncodingReview?: (msg: WorkerMsgEncodingReview) => void;
   onDelimiterReview?: (msg: WorkerMsgDelimiterReview) => void;
   onReady: (msg: WorkerMsgReady) => void;
+  onExportReady?: (msg: WorkerMsgExportReady) => void;
   onError: (msg: WorkerMsgError) => void;
 }
 
@@ -75,6 +77,9 @@ export class WorkerClient {
           case 'READY':
             callbacks.onReady(msg);
             break;
+          case 'EXPORT_READY':
+            callbacks.onExportReady?.(msg);
+            break;
           case 'ERROR':
             callbacks.onError(msg);
             break;
@@ -119,6 +124,26 @@ export class WorkerClient {
     return jobId;
   }
 
+  /**
+   * Request XLSX generation and verification for the active job.
+   */
+  exportXlsx(
+    columnTypes: Record<number, 'text' | 'number'>,
+    firstRowIsHeader: boolean,
+  ): boolean {
+    if (!this.worker || !this.activeJobId) {
+      return false;
+    }
+
+    this.worker.postMessage({
+      type: 'EXPORT',
+      jobId: this.activeJobId,
+      columnTypes,
+      firstRowIsHeader,
+    });
+    return true;
+  }
+
   /** Terminate the current worker and discard any active job. */
   terminate(): void {
     this.activeJobId = null;
@@ -130,5 +155,9 @@ export class WorkerClient {
 
   get isActive(): boolean {
     return this.activeJobId !== null;
+  }
+
+  get currentJobId(): string | null {
+    return this.activeJobId;
   }
 }
