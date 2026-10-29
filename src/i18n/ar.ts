@@ -39,6 +39,51 @@ export const ar = {
   noData: 'لا توجد صفوف بيانات قابلة للتحويل.',
   tooLarge: 'الملف أكبر من الحد المسموح (2 ميجابايت).',
   verifyFail: 'لم نتمكن من التأكد من سلامة الملف. لم يبدأ التنزيل.',
+
+  // Phase 2: worker parse states
+  parsing: 'جارٍ قراءة الملف…',
+  parsingDecoding: 'جارٍ فك الترميز…',
+  parsingDetecting: 'جارٍ اكتشاف الفاصل…',
+  parsingParsing: 'جارٍ تحليل CSV…',
+  parsingValidating: 'جارٍ التحقق من البنية…',
+
+  // Encoding review
+  encodingReviewTitle: 'تأكيد طريقة القراءة',
+  encodingReviewNonAscii:
+    'يحتوي الملف على محارف غير ASCII. تأكّد من أن المعاينة صحيحة قبل المتابعة.',
+  encodingConfirm: 'المحتوى صحيح، تابع',
+  encodingChange: 'اختر طريقة قراءة أخرى',
+
+  // Delimiter review
+  delimiterReviewTitle: 'اختر الفاصل',
+  delimiterReviewTie: 'تعذّر اختيار الفاصل تلقائيًا. اختر الفاصل المناسب.',
+  delimiterReviewSingleCol: 'لم يُنتج أي فاصل أعمدة متعددة. اختر الفاصل يدويًا.',
+  delimiterReviewFewRecords: 'العيّنة صغيرة جدًا للاكتشاف التلقائي. اختر الفاصل.',
+  delimiterComma: 'فاصلة (,)',
+  delimiterSemicolon: 'فاصلة منقوطة (;)',
+  delimiterTab: 'مسافة جدولة (Tab)',
+  delimiterPipe: 'خط عمودي (|)',
+
+  // Error codes
+  errorDecodeFailed: 'تعذّر قراءة الملف بالترميز المحدد.',
+  errorMalformedCsv: 'تنسيق CSV غير صحيح (ربما اقتباس غير مغلق) في {{detail}}.',
+  errorLimitExceeded: 'تجاوز الملف الحدود المسموح بها: {{detail}}.',
+  errorCellTooLong: 'الخلية في {{detail}} تتجاوز الحد الأقصى (32,767 محرف).',
+  errorUnsupportedFile: 'تنسيق الملف غير مدعوم أو يحتوي على محتوى ثنائي.',
+  errorFileTooLarge: 'الملف أكبر من الحد المسموح (2 ميجابايت).',
+  errorNoDataRows: 'لا توجد صفوف بيانات قابلة للتصدير.',
+  errorZeroColumns: 'لم يُعثر على أعمدة في الملف.',
+
+  // Summary / parse result
+  parseResultTitle: 'نتيجة القراءة',
+  parseRows: 'الصفوف',
+  parseColumns: 'الأعمدة',
+  parseEncoding: 'الترميز',
+  parseDelimiter: 'الفاصل',
+  parseHasHeader: 'يحتوي على رأس',
+  parseYes: 'نعم',
+  parseNo: 'لا',
+  parseUnevenWarning: 'تحذير: بعض الصفوف تحتوي على عدد مختلف من الأعمدة.',
 };
 
 export type Translation = typeof ar;

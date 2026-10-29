@@ -41,4 +41,49 @@ export const en: Translation = {
   noData: 'There are no data rows to convert.',
   tooLarge: 'File exceeds the 2 MiB limit.',
   verifyFail: "We couldn't verify this workbook, so no download was created.",
+
+  // Phase 2: worker parse states
+  parsing: 'Reading file…',
+  parsingDecoding: 'Decoding…',
+  parsingDetecting: 'Detecting separator…',
+  parsingParsing: 'Parsing CSV…',
+  parsingValidating: 'Validating structure…',
+
+  // Encoding review
+  encodingReviewTitle: 'Confirm encoding',
+  encodingReviewNonAscii:
+    'The file contains non-ASCII bytes. Confirm the preview looks correct before continuing.',
+  encodingConfirm: 'Looks correct — continue',
+  encodingChange: 'Choose a different encoding',
+
+  // Delimiter review
+  delimiterReviewTitle: 'Choose separator',
+  delimiterReviewTie: 'Could not auto-detect separator. Please choose one.',
+  delimiterReviewSingleCol: 'No separator produced multiple columns. Please choose manually.',
+  delimiterReviewFewRecords: 'Sample too small for auto-detection. Please choose a separator.',
+  delimiterComma: 'Comma (,)',
+  delimiterSemicolon: 'Semicolon (;)',
+  delimiterTab: 'Tab',
+  delimiterPipe: 'Pipe (|)',
+
+  // Error codes
+  errorDecodeFailed: 'Could not read the file with the selected encoding.',
+  errorMalformedCsv: 'CSV format error (possibly an unclosed quote) at {{detail}}.',
+  errorLimitExceeded: 'File exceeds the import limit: {{detail}}.',
+  errorCellTooLong: 'Cell at {{detail}} exceeds the maximum length (32,767 characters).',
+  errorUnsupportedFile: 'Unsupported file format or binary content detected.',
+  errorFileTooLarge: 'File exceeds the 2 MiB limit.',
+  errorNoDataRows: 'No data rows available for export.',
+  errorZeroColumns: 'No columns were found in the file.',
+
+  // Summary / parse result
+  parseResultTitle: 'Parse result',
+  parseRows: 'Rows',
+  parseColumns: 'Columns',
+  parseEncoding: 'Encoding',
+  parseDelimiter: 'Separator',
+  parseHasHeader: 'Has header',
+  parseYes: 'Yes',
+  parseNo: 'No',
+  parseUnevenWarning: 'Warning: some rows have a different number of columns.',
 };
