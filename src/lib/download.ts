@@ -23,14 +23,22 @@ export function sanitizeExportFilename(originalName: string): string {
     return `${DEFAULT_EXPORT_BASENAME}.xlsx`;
   }
 
-  // Remove trailing .csv extension (case-insensitive)
-  let base = originalName.replace(/\.csv$/i, '');
+  // Remove trailing .csv or .txt extension (case-insensitive)
+  let base = originalName.replace(/\.(csv|txt)$/i, '');
 
   // Strip path traversal sequences and path separators
   base = base.replace(/\.\./g, '').replace(/[/\\]/g, '-').replace(/:/g, '');
 
   // Remove control characters (0x00-0x1F, 0x7F) and unsafe characters
   base = base.replace(/[\x00-\x1f\x7f*?"<>|]/g, '');
+
+  // Strip bidi override and directional formatting characters
+  base = base.replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069\u061C]/g, '');
+
+  // Enforce maximum length of basename (100 characters)
+  if (base.length > 100) {
+    base = base.slice(0, 100);
+  }
 
   // Trim leading/trailing dashes, whitespace and periods
   base = base.trim().replace(/^[-.\s]+|[-.\s]+$/g, '');

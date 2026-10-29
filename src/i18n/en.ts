@@ -149,4 +149,24 @@ export const en: Translation = {
   downloadButton: 'Download verified XLSX',
   downloadReady: 'Your safe Excel workbook is ready.',
   generatingWorkbook: 'Building and verifying…',
+
+  // Phase 5: Privacy disclosure
+  privacyModalTitle: 'How privacy works in Nassaq',
+  privacyModalClose: 'Close',
+  privacyOpenButton: 'How privacy works',
+  privacyItemLocalTitle: '100% Local In-Browser Processing',
+  privacyItemLocalDesc:
+    'Your CSV bytes are decoded, parsed, and converted by a dedicated Web Worker running solely in your browser. No file contents, cell values, filenames, or workbooks are ever transmitted to any remote server or third party.',
+  privacyItemNoTrackTitle: 'Zero Tracking, Analytics, or Cookies',
+  privacyItemNoTrackDesc:
+    'Nassaq contains no telemetry, analytics, advertising, or tracking scripts, and sets no tracking cookies or persistent local storage.',
+  privacyItemEphemeralTitle: 'Ephemeral In-Memory Retention',
+  privacyItemEphemeralDesc:
+    'All file data and preview rows reside solely in temporary browser memory during your active tab session. Clicking "Choose another file" or closing the page discards all data immediately; nothing is persisted to localStorage or IndexedDB.',
+  privacyItemHostingTitle: 'Static Hosting & Outbound Links',
+  privacyItemHostingDesc:
+    'Like any website, your browser fetches static HTML and JavaScript assets from the hosting provider (which may log standard HTTP request metadata like IP address). Clicking the GitHub repository link navigates to GitHub subject to its own privacy policy.',
+  privacyItemSecurityTitle: 'Open Source & Security Disclosure',
+  privacyItemSecurityDesc:
+    'Nassaq is 100% free and open source under the MIT license. If you discover a security concern or data integrity issue, please report it via GitHub Security Advisories.',
 };
