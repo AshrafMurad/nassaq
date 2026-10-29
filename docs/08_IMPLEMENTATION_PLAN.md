@@ -197,6 +197,25 @@ and `src/components/import/ImportDetails.tsx` (integrated review, verification, 
 
 **Objective:** credible public MVP with reproducible tests.
 
+**Execution evidence (2026-10-29, branch `feat/phase-5-release`):** Phase 5
+**passed**: strict `npm run typecheck`, 143 Vitest unit tests across 11 test suites
+(`golden-fixtures.test.ts`, `openxml-structure.test.ts`, `verify.test.ts`,
+`xlsx-adapter.test.ts`, `download.test.ts`, `risks.test.ts`, `numeric-policy.test.ts`,
+`encoding.test.ts`, `limits.test.ts`, `delimiter.test.ts`, `csv.test.ts`),
+production `vite build` (static `dist/` with `import.worker` chunk and `_headers`),
+and complete Playwright E2E coverage across Chromium, Firefox, and WebKit
+(`shell.spec.ts`, `phase2.spec.ts`, `phase3.spec.ts`, `phase4.spec.ts`, `phase5-release.spec.ts`).
+Delivered release assets:
+- `public/_headers` & `index.html`: Content Security Policy and defense-in-depth static headers.
+- `src/lib/download.ts`: Enhanced filename sanitizer stripping bidi overrides, control characters, path traversal, and enforcing 100-char length caps.
+- `src/components/import/PrivacyModal.tsx`: Accessible bilingual dialog articulating 100% local processing, zero telemetry/cookies, session memory boundaries, static hosting request logging, and vulnerability reporting.
+- `tests/fixtures/*`: 28 golden synthetic CSV fixtures verifying the entire acceptance matrix.
+- `tests/unit/openxml-structure.test.ts`: Independent zip/XML inspection verifying zero `<f>` tags, no `<hyperlinks>`, and valid OpenXML spreadsheet types.
+- `tests/e2e/phase5-release.spec.ts`: Sentinel network interception tests, 100% offline verification, storage leak audit, hostile filename tests, and reset recovery.
+- `README.md`, `LICENSE` (MIT, Ashraf Murad), `SECURITY.md`, `CONTRIBUTING.md`, `.github/workflows/ci.yml`.
+- `package.json`: Version bumped to `0.1.0` (MVP candidate).
+All P0 requirements and release criteria are satisfied.
+
 **Tasks:** add negative fixtures, privacy/network interception, CSP draft with static host headers, output filename sanitation, worker cancellation/error recovery, README/license/security/privacy pages, cross-browser smoke, usability copy, production build, first public version tag. Independent XML/Excel/LibreOffice opening tests on critical fixtures. Confirm bundle and memory caps.
 
 **Expected files:** `tests/e2e/*`, `tests/fixtures/*`, `README.md`, `LICENSE`, `SECURITY.md`, privacy content, CI workflow, host headers config, docs updates.

@@ -1,7 +1,7 @@
 # AGENTS.md — Nassaq (نسّق)
 
 **Applies to:** repository root and all descendants.  
-**Current work mode:** **Phase 0 feasibility complete; Phase 1 and later implementation must be phase-scoped and separately authorized.** See `docs/PHASE_0_REPORT.md` for evidence and release follow-ups.
+**Current work mode:** **Phases 0 through 5 complete; MVP release candidate 0.1.0 ready.** See `docs/08_IMPLEMENTATION_PLAN.md` for phase evidence.
 **Read before editing:** all relevant `/docs` files, especially `04_DATA_INTEGRITY_AND_VALIDATION.md` and `08_IMPLEMENTATION_PLAN.md`.
 
 ## 1. Mission and immutable product boundaries
