@@ -36,6 +36,7 @@ import {
   removePhantomTrailingRecord,
   validateAndSummarize,
 } from '@/domain/csv';
+import { revalidateNumericExport } from '@/domain/numeric-policy';
 import { generateAndVerifyXlsx } from './xlsx-adapter';
 
 interface ActiveJob {
@@ -87,6 +88,12 @@ function handleParse(
   firstRowIsHeader: boolean,
 ): void {
   // ── Phase 1: File size cap ─────────────────────────────────────────────
+  // Defense-in-depth: the main thread gates File.size before reading, but the
+  // worker re-checks the transferred buffer (docs/02 §4, docs/06 §5).
+  if (buffer.byteLength === 0) {
+    post({ type: 'ERROR', jobId, code: 'EMPTY_FILE' });
+    return;
+  }
   if (buffer.byteLength > MAX_FILE_BYTES) {
     post({
       type: 'ERROR',
@@ -226,12 +233,33 @@ async function handleExport(
     return;
   }
 
+  // Defense-in-depth (docs/04 §3): never trust UI-supplied column types.
+  // Re-run the strict entire-column numeric gate inside the worker; a
+  // non-UI caller (or future UI bug) must not silently numeric-convert
+  // ineligible values.
+  const revalidation = revalidateNumericExport(
+    activeJob.records,
+    columnTypes,
+    firstRowIsHeader,
+  );
+  if (!revalidation.ok) {
+    post({
+      type: 'ERROR',
+      jobId,
+      code: 'EXPORT_FAILED',
+      detail: `INVALID_NUMBER:${revalidation.failedColumnIndex ?? -1}`,
+    });
+    return;
+  }
+
   post({ type: 'PROGRESS', jobId, phase: 'generating-xlsx' });
 
   const result = await generateAndVerifyXlsx(
     activeJob.records,
     columnTypes,
     firstRowIsHeader,
+    // Surface the verification sub-phase so the UI can show "Verifying cells"
+    (phase) => post({ type: 'PROGRESS', jobId, phase }),
   );
 
   if (!result.ok) {

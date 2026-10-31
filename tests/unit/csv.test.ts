@@ -190,17 +190,39 @@ describe('validateAndSummarize', () => {
     }
   });
 
-  it('flags uneven rows', () => {
+  it('blocks uneven rows with COLUMN_COUNT_MISMATCH naming the offending row', () => {
     const result = validate([
       ['a', 'b', 'c'],
       ['1', '2'],  // missing third column
       ['x', 'y', 'z'],
     ]);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.summary.hasUnevenRows).toBe(true);
-      expect(result.summary.unevenRowIndices).toContain(2);
-    }
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('COLUMN_COUNT_MISMATCH');
+    expect(result.detail).toBe('row 2');
+  });
+
+  it('lists multiple uneven rows in the blocking detail', () => {
+    const result = validate([
+      ['a', 'b'],
+      ['x'],              // short: CSV row 2
+      ['p', 'q'],
+      ['y', 'z', 'w'],    // long: CSV row 4
+    ]);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('COLUMN_COUNT_MISMATCH');
+    expect(result.detail).toBe('rows 2, 4');
+  });
+
+  it('blocks uneven rows in headerless mode with 1-based row index', () => {
+    const result = validate([['1', '2'], ['x']], {
+      firstRowIsHeader: false,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe('COLUMN_COUNT_MISMATCH');
+    expect(result.detail).toBe('row 2');
   });
 
   it('rejects CELL_TOO_LONG for a cell exceeding 32767 chars', () => {
@@ -211,6 +233,19 @@ describe('validateAndSummarize', () => {
     ]);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe('CELL_TOO_LONG');
+  });
+
+  it('rejects CELL_TOO_LONG for an oversized header cell with row 1 position', () => {
+    const longHeader = 'x'.repeat(32768);
+    const result = validate([
+      [longHeader, 'b'],
+      ['1', '2'],
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('CELL_TOO_LONG');
+      expect(result.detail).toBe('row 1, column 1');
+    }
   });
 
   it('rejects LIMIT_EXCEEDED for > 50 columns', () => {

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { DELIMITER_CANDIDATES, delimiterLabel } from '@/domain/delimiter';
+import { DELIMITER_CANDIDATES, delimiterLabelKey } from '@/domain/delimiter';
 import type { DelimiterChar } from '@/domain/protocol';
 
 interface DelimiterSelectorProps {
@@ -48,7 +48,7 @@ export function DelimiterSelector({
                   : 'border-2 border-black bg-white text-charcoal hover:bg-sage'
               }`}
             >
-              {delimiterLabel(d)}
+              {t(delimiterLabelKey(d))}
             </button>
           );
         })}

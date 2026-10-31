@@ -117,4 +117,47 @@ describe('xlsx-adapter generateAndVerifyXlsx', () => {
       expect(result.manifest.textCells).toBe(1); // Header 'Price'
     }
   });
+
+  it('fails closed on ragged records instead of padding or dropping cells', async () => {
+    // Short row (would previously be padded with an empty text cell)
+    const short = [
+      ['a', 'b'],
+      ['x'],
+    ];
+    const shortResult = await generateAndVerifyXlsx(short, {}, true);
+    expect(shortResult.ok).toBe(false);
+    if (!shortResult.ok) {
+      expect(shortResult.failure.reason).toBe('COLUMN_COUNT_MISMATCH');
+      expect(shortResult.failure.row).toBe(2);
+    }
+
+    // Long row (would previously be truncated beyond the first record's width)
+    const long = [
+      ['a', 'b'],
+      ['x', 'y', 'z', 'w'],
+    ];
+    const longResult = await generateAndVerifyXlsx(long, {}, true);
+    expect(longResult.ok).toBe(false);
+    if (!longResult.ok) {
+      expect(longResult.failure.reason).toBe('COLUMN_COUNT_MISMATCH');
+      expect(longResult.failure.row).toBe(2);
+    }
+  });
+
+  it('reports generating then verifying phases via onPhase (F-6)', async () => {
+    const records = [
+      ['Name', 'Amount'],
+      ['أحمد', '42.5'],
+    ];
+    const phases: string[] = [];
+    const result = await generateAndVerifyXlsx(
+      records,
+      {},
+      true,
+      (phase) => phases.push(phase),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(phases).toEqual(['generating-xlsx', 'verifying-xlsx']);
+  });
 });

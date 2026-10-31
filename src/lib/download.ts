@@ -17,6 +17,8 @@ const DEFAULT_EXPORT_BASENAME = 'nassaq-export';
  * Sanitizes an input filename into a safe, valid .xlsx filename.
  * Preserves Arabic characters, spaces, and standard alphanumeric text,
  * while stripping control characters, path separators, traversal sequences, and .csv extension.
+ * Appends the documented `-nassaq` suffix (docs/01 §3, docs/06 §4); the
+ * fallback basename already carries the product name and stays as-is.
  */
 export function sanitizeExportFilename(originalName: string): string {
   if (!originalName || typeof originalName !== 'string') {
@@ -44,10 +46,10 @@ export function sanitizeExportFilename(originalName: string): string {
   base = base.trim().replace(/^[-.\s]+|[-.\s]+$/g, '');
 
   if (!base) {
-    base = DEFAULT_EXPORT_BASENAME;
+    return `${DEFAULT_EXPORT_BASENAME}.xlsx`;
   }
 
-  return `${base}.xlsx`;
+  return `${base}-nassaq.xlsx`;
 }
 
 /**

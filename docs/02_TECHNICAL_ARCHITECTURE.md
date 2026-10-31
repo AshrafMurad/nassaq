@@ -51,6 +51,12 @@ Papa runs with `worker:false` inside the dedicated worker. Offline processing is
 proven with that worker already loaded and retained; creating a new worker after
 disconnection cannot rely on identical HTTP-cache behavior across browsers.
 
+**Version note (2026-10-31 remediation):** the 5.7.0 Papa Parse figure above is
+the version pinned inside the isolated phase-0 feasibility package. The shipped
+application dependency is `papaparse ^5.5.3` as resolved by the project lockfile
+(API-identical for every feature Nassaq uses); `XLSX_WORKER_FEASIBILITY.md`
+records the spike-package versions only.
+
 **Research checked 2026-10-28:** [Vite production build](https://vite.dev/guide/build), [Vite module workers](https://vite.dev/guide/features), [Next static export](https://nextjs.org/docs/app/guides/static-exports), [Papa Parse docs](https://www.papaparse.com/docs), [ExcelJS repository/license](https://github.com/exceljs/exceljs), [SheetJS licensing](https://docs.sheetjs.com/docs/miscellany/license/), [SheetJS official installation guidance](https://docs.sheetjs.com/docs/getting-started/installation/frameworks/). These confirm API/architecture direction, **not** a completed runtime security audit.
 
 ## 3. State machine and contracts

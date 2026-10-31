@@ -21,6 +21,8 @@ export interface DelimiterScore {
   consistentRows: number;
   /** Modal field count (columns) for this delimiter. */
   modalColumns: number;
+  /** True when the sample parse produced structural quote errors for this candidate. */
+  hasQuoteErrors: boolean;
 }
 
 export type DelimiterDetectResult =
@@ -44,7 +46,10 @@ function scoreDelimiter(text: string, delimiter: DelimiterChar): DelimiterScore 
     fastMode: false,
   });
 
-  // Ignore parse errors; take first SAMPLE_ROWS rows
+  // Structural quote errors disqualify this candidate (docs/03 §3)
+  const hasQuoteErrors = result.errors.some((e) => e.type === 'Quotes');
+
+  // Take first SAMPLE_ROWS rows
   const rows = result.data.slice(0, SAMPLE_ROWS);
 
   // Count field widths for non-empty rows (rows that have at least one non-empty field)
@@ -57,7 +62,7 @@ function scoreDelimiter(text: string, delimiter: DelimiterChar): DelimiterScore 
   }
 
   if (widthFreq.size === 0) {
-    return { delimiter, consistentRows: 0, modalColumns: 1 };
+    return { delimiter, consistentRows: 0, modalColumns: 1, hasQuoteErrors };
   }
 
   // Find modal width
@@ -70,7 +75,7 @@ function scoreDelimiter(text: string, delimiter: DelimiterChar): DelimiterScore 
     }
   }
 
-  return { delimiter, consistentRows: modalCount, modalColumns };
+  return { delimiter, consistentRows: modalCount, modalColumns, hasQuoteErrors };
 }
 
 /**
@@ -78,15 +83,21 @@ function scoreDelimiter(text: string, delimiter: DelimiterChar): DelimiterScore 
  * Uses a sample of up to 30 logical records.
  */
 export function detectDelimiter(decodedText: string): DelimiterDetectResult {
-  const scores = DELIMITER_CANDIDATES.map((d) => scoreDelimiter(decodedText, d));
+  const allScores = DELIMITER_CANDIDATES.map((d) => scoreDelimiter(decodedText, d));
 
-  // Filter to candidates with parse errors only: Papa Parse doesn't expose
-  // structural quote errors directly, so we rely on consistency scoring.
+  // docs/03 §3: reject candidates whose sample parse produced quote errors —
+  // a malformed sample must never be confidently auto-picked.
+  const validScores = allScores.filter((s) => !s.hasQuoteErrors);
+
+  if (validScores.length === 0) {
+    // Every candidate saw malformed quoting: detection cannot be trusted.
+    return { status: 'review', reason: 'tie', candidates: allScores };
+  }
 
   // Sort: most multi-column consistent rows first.
   // A single-column result (modalColumns === 1) should rank below any multi-column result.
   // Scoring: prefer multi-column first, then consistent rows, then column count.
-  const ranked = [...scores].sort((a, b) => {
+  const ranked = [...validScores].sort((a, b) => {
     const aMulti = a.modalColumns > 1 ? 1 : 0;
     const bMulti = b.modalColumns > 1 ? 1 : 0;
     if (bMulti !== aMulti) return bMulti - aMulti;
@@ -125,17 +136,20 @@ export function detectDelimiter(decodedText: string): DelimiterDetectResult {
 }
 
 /**
- * Return a human-readable label for a delimiter character.
+ * Return the i18n key for a delimiter's localized display label.
+ * Components render it via t(key) so labels follow the UI locale.
  */
-export function delimiterLabel(d: DelimiterChar): string {
+export function delimiterLabelKey(
+  d: DelimiterChar,
+): 'delimiterComma' | 'delimiterSemicolon' | 'delimiterTab' | 'delimiterPipe' {
   switch (d) {
     case ',':
-      return 'Comma (,)';
+      return 'delimiterComma';
     case ';':
-      return 'Semicolon (;)';
+      return 'delimiterSemicolon';
     case '\t':
-      return 'Tab';
+      return 'delimiterTab';
     case '|':
-      return 'Pipe (|)';
+      return 'delimiterPipe';
   }
 }

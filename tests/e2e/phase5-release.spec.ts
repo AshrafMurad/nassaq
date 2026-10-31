@@ -63,7 +63,7 @@ test.describe('Phase 5 — Security, privacy, offline capabilities, and final QA
     await page.getByTestId('download-excel-button').click();
     const download = await downloadPromise;
 
-    expect(download.suggestedFilename()).toBe('secret-payroll-sentinel-2026.xlsx');
+    expect(download.suggestedFilename()).toBe('secret-payroll-sentinel-2026-nassaq.xlsx');
 
     // Strict audit: Inspect all requests made during and after the file processing
     const requestsDuringProcessing = outgoingRequests.slice(initialRequestCount);
@@ -243,7 +243,7 @@ test.describe('Phase 5 — Security, privacy, offline capabilities, and final QA
     expect(filename).not.toContain('\\');
     // Bidi override stripped
     expect(filename).not.toContain('\u202E');
-    expect(filename).toBe('testevil.xlsx');
+    expect(filename).toBe('testevil-nassaq.xlsx');
   });
 
   test('error recovery: handles malformed CSV and allows user to reset cleanly', async ({
@@ -254,7 +254,12 @@ test.describe('Phase 5 — Security, privacy, offline capabilities, and final QA
     // Upload broken quote
     await setInputFile(page, 'a,b\n"unclosed quote,value\n', 'broken.csv');
 
-    // Error banner appears
+    // docs/03 §3 (D-2): detection refuses candidates with quote parse errors,
+    // so the delimiter review is shown first instead of a confident guess.
+    await expect(page.getByTestId('delimiter-review')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('delimiter-option-,').click();
+
+    // After explicit confirmation, the full parse reports the malformed CSV error
     await expect(page.getByTestId('parse-error')).toBeVisible({ timeout: 10_000 });
 
     // Reset via "Choose another file"

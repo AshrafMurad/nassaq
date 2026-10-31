@@ -367,16 +367,16 @@ describe('Golden synthetic fixture matrix', () => {
     expect(numEligibility.primaryReason).toBe('LEXICAL_ROUNDTRIP_MISMATCH');
   });
 
-  it('24. uneven.csv: reports uneven row width in summary', () => {
+  it('24. uneven.csv: full export blocked with row index', () => {
     const text = readFixtureString('uneven.csv');
     const { records: rawRecords, errors } = parseRawCsv(text, ',');
     const records = removePhantomTrailingRecord(rawRecords, text);
     const result = validateAndSummarize(records, errors, ',', 'utf-8', false, true, true);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
 
-    expect(result.summary.hasUnevenRows).toBe(true);
-    expect(result.summary.unevenRowIndices).toContain(2);
+    expect(result.code).toBe('COLUMN_COUNT_MISMATCH');
+    expect(result.detail).toBe('row 2');
   });
 
   it('25. broken-quote.csv: reports unclosed quote or parsing error', () => {

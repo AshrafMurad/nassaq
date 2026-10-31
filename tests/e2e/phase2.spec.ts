@@ -8,6 +8,7 @@
  */
 
 import { expect, test, type Page } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 
 // ── Fixture builder ──────────────────────────────────────────────────────
 
@@ -127,6 +128,39 @@ test.describe('Phase 2 — worker CSV parsing', () => {
       buffer: Buffer.from(binary, 'binary'),
     });
     await expect(page.getByTestId('parse-error')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('refuses uneven-row file with row index and blocks export path', async ({ page }) => {
+    await page.goto('/');
+    // docs/07: uneven.csv must block export with a 1-based row reference
+    const csv = readFileSync('tests/fixtures/uneven.csv', 'utf-8');
+    await setInputFile(page, csv, 'uneven.csv');
+
+    const parseError = page.getByTestId('parse-error');
+    await expect(parseError).toBeVisible({ timeout: 10_000 });
+    // Error names the earliest offending 1-based CSV row, without cell content
+    await expect(parseError).toContainText('row 2');
+    // U-10: keyboard/AT focus moves to the blocking error heading
+    await expect(page.getByTestId('parse-error-heading')).toBeFocused();
+
+    // Export path unreachable: no parse result, no create/download buttons, no download
+    await expect(page.getByTestId('parse-result')).not.toBeVisible();
+    await expect(page.getByTestId('create-excel-button')).not.toBeVisible();
+    await expect(page.getByTestId('download-excel-button')).not.toBeVisible();
+  });
+
+  test('rejects an empty (0-byte) file without reading it', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('file-input').setInputFiles({
+      name: 'empty.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.alloc(0),
+    });
+    const parseError = page.getByTestId('parse-error');
+    await expect(parseError).toBeVisible({ timeout: 10_000 });
+    // EMPTY_FILE (docs/02 §7) with Arabic copy (default locale)
+    await expect(parseError).toContainText('فارغ');
+    await expect(page.getByTestId('parse-result')).not.toBeVisible();
   });
 
   test('choosing another file resets parse result', async ({ page }) => {

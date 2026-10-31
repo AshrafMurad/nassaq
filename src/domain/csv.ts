@@ -5,7 +5,8 @@
  *  - Papa Parse with header:false, dynamicTyping:false, no transforms.
  *  - Preserve all rows; phantom final empty record from trailing newline is removed.
  *  - Empty between delimiters is empty string, not null.
- *  - Uneven rows (field count ≠ first row width) are structural errors to report.
+ *  - Uneven rows (field count ≠ first row width) are structural errors that
+ *    block export (COLUMN_COUNT_MISMATCH) with 1-based CSV row references.
  *  - Limits checked here; caller decides blocking vs. reporting.
  */
 
@@ -93,6 +94,7 @@ export type CsvValidateResult =
       ok: false;
       code:
         | 'MALFORMED_CSV'
+        | 'COLUMN_COUNT_MISMATCH'
         | 'ZERO_COLUMNS'
         | 'LIMIT_EXCEEDED'
         | 'CELL_TOO_LONG'
@@ -180,6 +182,22 @@ export function validateAndSummarize(
     };
   }
 
+  // Header cell length cap (docs/04 §4): header cells are exported as literal
+  // text row 1 and must satisfy the same 32,767 UTF-16 unit limit; an
+  // oversized header is rejected here with its position, never truncated.
+  if (headerRecord) {
+    for (let c = 0; c < headerRecord.length; c++) {
+      const cell = headerRecord[c] ?? '';
+      if (utf16Length(cell) > MAX_CELL_UTF16) {
+        return {
+          ok: false,
+          code: 'CELL_TOO_LONG',
+          detail: `row 1, column ${c + 1}`,
+        };
+      }
+    }
+  }
+
   // Scan cells: check length cap and detect uneven rows
   const unevenRowIndices: number[] = [];
   let hasUnevenRows = false;
@@ -206,6 +224,17 @@ export function validateAndSummarize(
         };
       }
     }
+  }
+
+  // Structural error: every row must match the first record's width.
+  // Blocking (docs/03 §4 P-6); never padded or truncated downstream.
+  if (hasUnevenRows) {
+    const list = unevenRowIndices.join(', ');
+    return {
+      ok: false,
+      code: 'COLUMN_COUNT_MISMATCH',
+      detail: unevenRowIndices.length === 1 ? `row ${list}` : `rows ${list}`,
+    };
   }
 
   // Header labels

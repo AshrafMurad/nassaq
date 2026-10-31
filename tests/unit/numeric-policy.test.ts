@@ -3,6 +3,7 @@ import {
   validateCellNumeric,
   validateColumnNumeric,
   countSignificantDigits,
+  revalidateNumericExport,
 } from '@/domain/numeric-policy';
 
 describe('numeric-policy: countSignificantDigits', () => {
@@ -171,5 +172,58 @@ describe('numeric-policy: validateColumnNumeric', () => {
     const result = validateColumnNumeric(col, 1);
     expect(result.eligible).toBe(false);
     expect(result.failedRowIndices).toEqual([1, 2, 3, 4, 5]);
+  });
+});
+
+describe('numeric-policy: revalidateNumericExport (worker EXPORT defense-in-depth)', () => {
+  const table = [
+    ['Amount', 'Note'],
+    ['10', 'a'],
+    ['2.5', 'b'],
+  ];
+
+  it('accepts a genuinely eligible number column', () => {
+    const result = revalidateNumericExport(table, { 0: 'number' }, true);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects an ineligible number column with its index and reason', () => {
+    const bad = [
+      ['Amount', 'Note'],
+      ['10', 'a'],
+      ['002', 'b'],
+    ];
+    const result = revalidateNumericExport(bad, { 0: 'number' }, true);
+    expect(result.ok).toBe(false);
+    expect(result.failedColumnIndex).toBe(0);
+    expect(result.reason).toBe('NON_CANONICAL_GRAMMAR');
+  });
+
+  it('ignores text columns and excludes the header row', () => {
+    const result = revalidateNumericExport(table, { 0: 'text', 1: 'text' }, true);
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects a >15-significant-digit column selected as number', () => {
+    const precision = [
+      ['Value'],
+      ['0.1234567890123456'],
+    ];
+    const result = revalidateNumericExport(precision, { 0: 'number' }, true);
+    expect(result.ok).toBe(false);
+    expect(result.failedColumnIndex).toBe(0);
+    expect(result.reason).toBe('SIGNIFICANT_DIGITS_EXCEEDED');
+  });
+
+  it('handles headerless tables with rowOffset 1', () => {
+    const headerless = [['10'], ['002']];
+    const result = revalidateNumericExport(headerless, { 0: 'number' }, false);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('NON_CANONICAL_GRAMMAR');
+  });
+
+  it('passes when no column is requested as number', () => {
+    const result = revalidateNumericExport(table, {}, true);
+    expect(result.ok).toBe(true);
   });
 });

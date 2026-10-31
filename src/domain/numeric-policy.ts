@@ -144,3 +144,44 @@ export function validateColumnNumeric(
     primaryReason,
   };
 }
+
+export interface ExportNumericRevalidation {
+  ok: boolean;
+  /** 0-based index of the first requested number column that failed the gate. */
+  failedColumnIndex?: number;
+  /** Rejection reason for that column's earliest failing row. */
+  reason?: NumericRejectionReason;
+}
+
+/**
+ * Defense-in-depth for the worker EXPORT step (docs/04 §3).
+ * Re-runs the strict entire-column numeric gate for every column the caller
+ * requested as Number, using the canonical records held in the worker —
+ * so a bypassed or buggy UI can never silently numeric-convert
+ * ineligible values.
+ */
+export function revalidateNumericExport(
+  records: readonly (readonly string[])[],
+  columnTypes: Record<number, 'text' | 'number'>,
+  firstRowIsHeader: boolean,
+): ExportNumericRevalidation {
+  const rowOffset = firstRowIsHeader ? 2 : 1;
+  const dataRecords = firstRowIsHeader ? records.slice(1) : records;
+
+  for (const key of Object.keys(columnTypes)) {
+    const c = Number(key);
+    if (columnTypes[c] !== 'number') continue;
+
+    const values = dataRecords.map((row) => row[c] ?? '');
+    const validation = validateColumnNumeric(values, rowOffset);
+    if (!validation.eligible) {
+      return {
+        ok: false,
+        failedColumnIndex: c,
+        reason: validation.primaryReason,
+      };
+    }
+  }
+
+  return { ok: true };
+}

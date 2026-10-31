@@ -84,6 +84,10 @@ test.describe('Phase 3 — Risk review UI and safe type policy', () => {
     // Auto-detection selects semicolon
     await expect(page.getByTestId('parse-columns')).toHaveText('3');
 
+    // Delimiter labels are localized (Arabic default UI)
+    await expect(page.getByTestId('delimiter-choice-;')).toContainText('فاصلة منقوطة');
+    await expect(page.getByTestId('delimiter-choice-,')).toContainText('فاصلة');
+
     // User manually clicks Comma
     await page.getByTestId('delimiter-choice-,').click();
 
@@ -169,6 +173,27 @@ test.describe('Phase 3 — Risk review UI and safe type policy', () => {
 
     const alert = page.getByTestId('column-blocked-alert-1');
     await expect(alert).toBeVisible();
+    await expect(col1Select).toHaveValue('text');
+  });
+
+  test('shows the precision message for >15 significant digit decimals (F-5)', async ({ page }) => {
+    await page.goto('/');
+
+    // 16 significant digits with a fraction: not IDENTIFIER_RISK (integer
+    // run < 16), so the rejection reason is SIGNIFICANT_DIGITS_EXCEEDED and
+    // the precision explanation must display (not the generic grammar one).
+    const csv = ['Name,Value', 'أحمد,0.1234567890123456'].join('\n');
+
+    await setInputFile(page, csv, 'precision.csv');
+    await waitForReviewReady(page);
+
+    const col1Select = page.getByTestId('column-type-select-1');
+    await col1Select.selectOption('number');
+
+    const alert = page.getByTestId('column-blocked-alert-1');
+    await expect(alert).toBeVisible();
+    // Precision message mentions the 15-digit threshold in both locales
+    await expect(alert).toContainText('15');
     await expect(col1Select).toHaveValue('text');
   });
 
