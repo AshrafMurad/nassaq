@@ -35,21 +35,44 @@ export type XlsxGenerationResult =
       failure: VerificationFailure;
     };
 
+/** Generation/verification sub-phases reported while the adapter works. */
+export type XlsxPhase = 'generating-xlsx' | 'verifying-xlsx';
+
 /**
  * Generates an XLSX workbook from canonical parsed records, reloads it,
  * verifies every cell, and returns the verified ArrayBuffer.
+ * `onPhase` lets the worker surface 'verifying-xlsx' to the UI before the
+ * read-back begins.
  */
 export async function generateAndVerifyXlsx(
   records: readonly (readonly string[])[],
   columnTypes: Record<number, 'text' | 'number'>,
   firstRowIsHeader: boolean,
+  onPhase?: (phase: XlsxPhase) => void,
 ): Promise<XlsxGenerationResult> {
   const expectedRowCount = records.length;
   const expectedColumnCount = records[0]?.length ?? 0;
 
+  // Defense-in-depth: ragged input must never reach generation, where it
+  // would be silently padded with empty cells or truncated. validateAndSummarize
+  // blocks uneven rows (COLUMN_COUNT_MISMATCH); assert again here fail-closed.
+  for (let r = 1; r < expectedRowCount; r++) {
+    if (records[r]?.length !== expectedColumnCount) {
+      return {
+        ok: false,
+        failure: {
+          reason: 'COLUMN_COUNT_MISMATCH',
+          row: r + 1,
+        },
+      };
+    }
+  }
+
   try {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Data');
+
+    onPhase?.('generating-xlsx');
 
     for (let r = 0; r < expectedRowCount; r++) {
       const isHeader = r === 0 && firstRowIsHeader;
@@ -79,6 +102,8 @@ export async function generateAndVerifyXlsx(
     const output = await workbook.xlsx.writeBuffer();
 
     // ── Read-back and verify ─────────────────────────────────────────────
+    onPhase?.('verifying-xlsx');
+
     const loaded = new ExcelJS.Workbook();
     await loaded.xlsx.load(output);
 

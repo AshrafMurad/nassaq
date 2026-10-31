@@ -179,6 +179,8 @@ export type ImportErrorCode =
   | 'CELL_TOO_LONG'
   | 'UNSUPPORTED_FILE'
   | 'FILE_TOO_LARGE'
+  | 'EMPTY_FILE'
+  | 'WORKER_UNAVAILABLE'
   | 'ZERO_COLUMNS'
   | 'NO_DATA_ROWS'
   | 'EXPORT_FAILED'

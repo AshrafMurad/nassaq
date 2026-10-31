@@ -18,6 +18,7 @@ import type {
   SupportedEncoding,
   DelimiterChar,
 } from '@/domain/protocol';
+import { MAX_FILE_BYTES } from '@/domain/limits';
 
 export interface WorkerCallbacks {
   onProgress?: (msg: WorkerMsgProgress) => void;
@@ -46,6 +47,24 @@ export class WorkerClient {
     const jobId = crypto.randomUUID();
     this.activeJobId = jobId;
 
+    // Pre-read gate (docs/02 §4, docs/06 §5): enforce size and emptiness caps
+    // on File.size BEFORE reading anything into memory.
+    if (file.size === 0) {
+      this.activeJobId = null;
+      callbacks.onError({ type: 'ERROR', jobId, code: 'EMPTY_FILE' });
+      return jobId;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      this.activeJobId = null;
+      callbacks.onError({
+        type: 'ERROR',
+        jobId,
+        code: 'FILE_TOO_LARGE',
+        detail: String(file.size),
+      });
+      return jobId;
+    }
+
     // Read the file as an ArrayBuffer before spinning up the worker
     const reader = new FileReader();
     reader.onload = () => {
@@ -54,10 +73,16 @@ export class WorkerClient {
 
       const buffer = reader.result as ArrayBuffer;
 
-      this.worker = new Worker(
-        new URL('@/worker/import.worker.ts', import.meta.url),
-        { type: 'module' },
-      );
+      try {
+        this.worker = new Worker(
+          new URL('@/worker/import.worker.ts', import.meta.url),
+          { type: 'module' },
+        );
+      } catch {
+        this.activeJobId = null;
+        callbacks.onError({ type: 'ERROR', jobId, code: 'WORKER_UNAVAILABLE' });
+        return;
+      }
 
       this.worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
         const msg = event.data;

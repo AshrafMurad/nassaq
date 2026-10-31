@@ -53,7 +53,7 @@ export function ColumnTypeSelector({
           case 'EMPTY_COLUMN':
             reason = t('numericBlockedReasonEmpty');
             break;
-          case 'PRECISION_LIMIT_EXCEEDED':
+          case 'SIGNIFICANT_DIGITS_EXCEEDED':
             reason = t('numericBlockedReasonPrecision', { rows: rowsStr });
             break;
           case 'IDENTIFIER_RISK':

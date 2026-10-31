@@ -40,7 +40,7 @@ test.describe('Phase 4 — Safe XLSX and mandatory verification', () => {
     const downloadPromise = page.waitForEvent('download');
     await page.getByTestId('download-excel-button').click();
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toBe('literal-xlsx-escapes.xlsx');
+    expect(download.suggestedFilename()).toBe('literal-xlsx-escapes-nassaq.xlsx');
     const stream = await download.createReadStream();
     const chunks: Buffer[] = [];
     for await (const chunk of stream) chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
@@ -104,8 +104,8 @@ test.describe('Phase 4 — Safe XLSX and mandatory verification', () => {
     await downloadBtn.click();
     const download = await downloadPromise;
 
-    // Check sanitized filename
-    expect(download.suggestedFilename()).toBe('inventory-2026.xlsx');
+    // Check sanitized filename (docs/01 §3, docs/06 §4: -nassaq suffix)
+    expect(download.suggestedFilename()).toBe('inventory-2026-nassaq.xlsx');
 
     // Read back downloaded buffer with independent ExcelJS instance
     const downloadStream = await download.createReadStream();
@@ -205,5 +205,43 @@ test.describe('Phase 4 — Safe XLSX and mandatory verification', () => {
     // Download button invalidated
     await expect(page.getByTestId('download-excel-button')).not.toBeVisible();
     await expect(page.getByTestId('create-excel-button')).toBeVisible();
+  });
+
+  test('cancel control offered while parsing and cancels a long export to a fresh state (U-8)', async ({
+    page,
+  }) => {
+    await page.goto('/');
+
+    // Max allowed table: 10,000 data rows × 10 columns = 100,000 data cells.
+    // Generation + read-back verification takes well over a second, giving a
+    // reliable window to press Cancel.
+    const header = 'a,b,c,d,e,f,g,h,i,j';
+    const row = 'v,1,2,3,4,5,6,7,8,9';
+    const csv = `${header}\n${Array.from({ length: 10_000 }, () => row).join('\n')}\n`;
+
+    await setInputFile(page, csv, 'big-cancel.csv');
+
+    // U-8: Cancel is visible while the file is being read/parsed
+    const cancel = page.getByTestId('cancel-button');
+    await expect(cancel).toBeVisible({ timeout: 10_000 });
+
+    await waitForReviewReady(page);
+    await expect(cancel).not.toBeVisible();
+
+    // Start export, then cancel while generating/verifying
+    await page.getByTestId('create-excel-button').click();
+    await expect(cancel).toBeVisible({ timeout: 10_000 });
+    await cancel.click();
+
+    // docs/05 §4: cancelled → fresh empty flow, no stale results
+    await expect(page.getByTestId('dropzone')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('parse-result')).not.toBeVisible();
+    await expect(page.getByTestId('download-excel-button')).not.toBeVisible();
+
+    // Recovery: the same input can be re-selected and fully exported
+    await setInputFile(page, csv, 'big-cancel.csv');
+    await waitForReviewReady(page);
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('download-excel-button')).toBeVisible({ timeout: 30_000 });
   });
 });

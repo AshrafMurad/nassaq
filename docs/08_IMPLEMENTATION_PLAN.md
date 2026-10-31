@@ -121,7 +121,11 @@ phantom newline removal, uneven-row detection, structural validation),
 src/worker/import.worker.ts (dedicated Web Worker pipeline), and src/lib/worker-client.ts\r
 (lifecycle, cancellation, zero-copy ArrayBuffer transfer). All data-integrity invariants
 from docs/04_DATA_INTEGRITY_AND_VALIDATION.md and docs/03_CSV_PARSING_AND_ENCODING.md\r
-are respected. Zero vulnerabilities in npm audit (vitest upgraded to 5.0.5).
+are respected. npm audit at this phase showed no high/critical findings; the 9 moderate
+`uuid` findings (GHSA-w5hq-g745-h8pq via ExcelJS, reviewed unreachable and non-blocking in
+phase 0, see `XLSX_WORKER_FEASIBILITY.md` §5) were already documented and remain the only
+open advisory. "Zero vulnerabilities" as previously worded here was inaccurate and has been
+corrected (2026-10-31 doc-drift remediation).
 
 **Tasks:** typed worker request/response messages, transfer input bytes, strict UTF-8/BOM, manually selectable Windows-1256/ISO-8859-6, delimiter candidates, Papa quote-aware parser as string arrays, limits and errors, safe final-newline semantics, 20-row preview and full-file metadata. Return only summary+sample to UI; data stays in worker. Disallow stale jobs; cancel/reset via terminate/recreate.
 
@@ -288,3 +292,34 @@ For each phase, start a clean coding-agent session with: (1) exact phase, (2) `A
 - Does opening XLSX with Excel/LibreOffice show literal formula-like strings and long IDs?
 
 **Definition of Done:** Tests/checklists attached to each phase are satisfied; no unapproved scope growth; docs agree; no unresolved blocking integrity/security risk.
+
+## 8. Post-audit remediation record (2026-10-31)
+
+Remediating `docs/audits/NASSAQ_IMPLEMENTATION_AUDIT.md` (branch
+`fix/audit-p0-uneven-rows`, base `fix/literal-xlsx-escapes` @ `42535de`):
+
+- **P0 (F-1):** uneven rows now block export with `COLUMN_COUNT_MISMATCH` and
+  1-based row references; XLSX adapter asserts uniform record width fail-closed.
+  Aligns code with docs/01 §4, docs/03 §4, docs/07 (`uneven.csv` = blocked).
+- **P1:** pre-read `File.size` gate (`EMPTY_FILE` / `FILE_TOO_LARGE` before any
+  read; worker re-checks the buffer); blocking-error heading receives focus
+  (docs/05 §7 U-10); dedicated Cancel control while parsing/generating/verifying
+  that resets to the fresh start flow and terminates the worker (docs/05 §4 U-8).
+- **P2:** numeric precision reason mapping fixed (F-5); `verifying-xlsx`
+  progress phase posted via adapter callback (F-6); localized delimiter labels
+  in the selector and review buttons; `-nassaq` output-filename suffix
+  implemented per docs/01 §3 / docs/06 §4 (FN-1 decision: code, not docs);
+  worker re-validates Number columns at EXPORT (F-3); header cells included in
+  the 32,767-unit length check (XL-1); delimiter detection rejects candidates
+  with quote parse errors (D-2 — malformed samples now force review, never a
+  confident guess); `localization` and `workerProtocol` unit suites added
+  (docs/07 §4); doc drift corrected: docs/02 §2 Papa version note (app locks
+  `papaparse ^5.5.3`; 5.7.0 was the feasibility package) and the inaccurate
+  phase-2 "Zero vulnerabilities" wording replaced with the documented 9
+  moderate `uuid` advisory.
+
+**Point-in-time counts (remediation gate run):** strict `npm run typecheck`,
+**172 Vitest unit tests across 13 suites**, production build (static `dist/`),
+and **141 Playwright checks (47 cases × Chromium/Firefox/WebKit)** — all green.
+Phase evidence sections above record the counts measured when each phase
+closed; they are historical snapshots, not current totals.

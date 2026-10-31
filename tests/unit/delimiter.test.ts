@@ -70,4 +70,26 @@ describe('detectDelimiter', () => {
       expect(result.delimiter).toBe(',');
     }
   });
+
+  it('rejects candidates with quote parse errors — malformed sample forces review (docs/03 §3)', () => {
+    // Unclosed quote: every candidate parse hits a Quotes error, so none may
+    // be confidently auto-picked.
+    const text = 'a,b\n"unclosed quote,value\n';
+    const result = detectDelimiter(text);
+    expect(result.status).toBe('review');
+    if (result.status === 'review') {
+      expect(result.reason).toBe('tie');
+    }
+  });
+
+  it('still detects confidently when only some candidates hit quote errors', () => {
+    // Balanced quotes; semicolon is the real delimiter with quoted commas.
+    const text =
+      'id;note\n1;"Hello, World"\n2;"مرحبا, عالم"\n3;"ok, fine"\n';
+    const result = detectDelimiter(text);
+    expect(result.status).toBe('confident');
+    if (result.status === 'confident') {
+      expect(result.delimiter).toBe(';');
+    }
+  });
 });

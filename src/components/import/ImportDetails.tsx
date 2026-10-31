@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { WorkerClient } from '@/lib/worker-client';
-import { delimiterLabel, DELIMITER_CANDIDATES } from '@/domain/delimiter';
+import { delimiterLabelKey, DELIMITER_CANDIDATES } from '@/domain/delimiter';
 import { EncodingSelector } from './EncodingSelector';
 import { DelimiterSelector } from './DelimiterSelector';
 import { HeaderModeToggle } from './HeaderModeToggle';
@@ -77,6 +77,7 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
 
   const clientRef = useRef<WorkerClient | null>(null);
   const activeBlobUrlRef = useRef<string | null>(null);
+  const errorHeadingRef = useRef<HTMLHeadingElement>(null);
 
   const [parseState, setParseState] = useState<ParseState>({ status: 'idle' });
   const [exportState, setExportState] = useState<ExportState>({ status: 'idle' });
@@ -168,6 +169,14 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file]);
 
+  // U-10 (docs/05 §7): move keyboard/AT focus to the blocking error heading
+  // whenever the parse state enters error.
+  useEffect(() => {
+    if (parseState.status === 'error') {
+      errorHeadingRef.current?.focus();
+    }
+  }, [parseState]);
+
   const handleEncodingChange = (enc: SupportedEncoding) => {
     setEncoding(enc);
     setDelimiter(undefined);
@@ -229,10 +238,13 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
     switch (err.code) {
       case 'DECODE_FAILED': return t('errorDecodeFailed');
       case 'MALFORMED_CSV': return t('errorMalformedCsv', { detail: d });
+      case 'COLUMN_COUNT_MISMATCH': return t('errorColumnCountMismatch', { detail: d });
       case 'LIMIT_EXCEEDED': return t('errorLimitExceeded', { detail: d });
       case 'CELL_TOO_LONG': return t('errorCellTooLong', { detail: d });
       case 'UNSUPPORTED_FILE': return t('errorUnsupportedFile');
       case 'FILE_TOO_LARGE': return t('errorFileTooLarge');
+      case 'EMPTY_FILE': return t('errorEmptyFile');
+      case 'WORKER_UNAVAILABLE': return t('errorWorkerUnavailable');
       case 'NO_DATA_ROWS': return t('errorNoDataRows');
       case 'ZERO_COLUMNS': return t('errorZeroColumns');
       case 'EXPORT_FAILED': return t('errorExportFailed');
@@ -323,6 +335,18 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
             <span className="text-sm font-semibold text-charcoal">
               {progressLabel(parseState.phase)}
             </span>
+            {/* U-8 (docs/05 §4): Cancel is available while reading/parsing.
+                Cancelling resets to the fresh start flow; the unmount cleanup
+                terminates the worker and revokes any download URL. */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onClear}
+              data-testid="cancel-button"
+              className="ms-auto min-h-11"
+            >
+              {t('cancel')}
+            </Button>
           </div>
         )}
 
@@ -387,7 +411,7 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
                   onClick={() => handleDelimiterConfirm(d)}
                   data-testid={`delimiter-option-${d === '\t' ? 'tab' : d}`}
                 >
-                  {delimiterLabel(d)}
+                  {t(delimiterLabelKey(d))}
                 </Button>
               ))}
             </div>
@@ -404,7 +428,14 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
               className="mt-0.5 size-5 shrink-0 text-red-600"
               aria-hidden="true"
             />
-            <p className="text-sm font-medium text-charcoal">{errorMessage(parseState.err)}</p>
+            <h3
+              ref={errorHeadingRef}
+              tabIndex={-1}
+              data-testid="parse-error-heading"
+              className="text-sm font-bold text-charcoal outline-none"
+            >
+              {errorMessage(parseState.err)}
+            </h3>
           </div>
         )}
 
@@ -445,6 +476,22 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
                   : undefined
               }
             />
+
+            {/* U-8 (docs/05 §4): Cancel is available while generating/verifying.
+                Cancelling resets to the fresh start flow (no stale results). */}
+            {exportState.status === 'exporting' && (
+              <div className="flex justify-start border-t border-black/10 pt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onClear}
+                  data-testid="cancel-button"
+                  className="min-h-11"
+                >
+                  {t('cancel')}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
