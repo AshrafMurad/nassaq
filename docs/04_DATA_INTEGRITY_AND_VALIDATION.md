@@ -98,7 +98,7 @@ Risk scanner runs **after decoding and parsing**, before export. It may flag:
 
 ### 5a. Suggestion catalog (Phase 6)
 
-Suggestions are *optional* proposed values mapped from detected risk/issue classes. They are generated over the effective table, delivered as a bounded list (first 50 + total count), and never self-apply. Classification: `safe` = mechanical and lossless (bijective transform of the original); `ambiguous` = requires user judgment (may lose characters or change meaning).
+Suggestions are *optional* proposed values mapped from detected risk/issue classes. They are generated over the effective table, delivered initially as a bounded list (first 50 + total count), and never self-apply. The UI may request later bounded pages from the worker (`GET_SUGGESTIONS { offset, limit }`); each response contains only the requested window plus the total count, so the main thread never receives or retains the complete list. Classification: `safe` = mechanical and lossless (bijective transform of the original); `ambiguous` = requires user judgment (may lose characters or change meaning).
 
 | Detected class | Suggestion kind | Classification | Proposed value |
 |---|---|---|---|

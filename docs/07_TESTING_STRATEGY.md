@@ -63,7 +63,11 @@ literal, multiline cells); undo → export reflects reverted values; reject
 suggestion → export unchanged; stale-edit conflict → fail closed
 (`EDIT_CONFLICT`); over-cap proposal → refused (`EDIT_INVALID`); cancel/reset →
 diffs cleared. E2E adds: detect → suggest → preview → confirm → apply →
-download; zero non-app network requests across the whole repair flow.
+download; confirming one manual cell leaves unrelated staged suggestions pending;
+stage→unstage and stage→reject remove pending diffs; multiline editing preserves
+embedded line breaks and restores focus; confirmed changes invalidate older
+verified downloads; >10 suggestions page through worker-backed bounded windows;
+zero non-app network requests across the whole repair flow.
 
 `literal-xlsx-escapes.csv` covers literal `_x0041_`/`_x000D_`, a header containing
 an escape-looking string, uppercase/lowercase hex, adjacent and shared-underscore
@@ -115,7 +119,7 @@ Prefer table-driven tests for deterministic rules. Test CSV parsing and XLSX ver
 8. **Privacy:** intercept all outgoing requests after app load; unique CSV sentinel never appears. Verify no localStorage/IndexedDB persistence of content.
 9. **Recovery:** change source after error, cancel work, switch language during review; UI state is not corrupted.
 10. **A11y:** keyboard-only selection and download, accessible error focus, dir auto for mixed-script content.
-11. **Repair (Phase 6):** detect → suggest → preview → confirm → apply → download with read-back equality; undo → download reflects reverted values; reject suggestion → unchanged export; cancel/reset clears diffs; editing a cell to a formula-like string still exports literal text; no non-app network requests during the repair flow.
+11. **Repair (Phase 6):** preview precedes a collapsed, paginated repair panel; detect → suggest → preview → confirm → apply → download with read-back equality; confirmed changes revoke older verified output; one manual confirm cannot apply other staged proposals; stage/unstage/reject behave exactly; multiline values and post-confirm focus are preserved; undo → download reflects reverted values; cancel/reset clears diffs; editing a cell to a formula-like string still exports literal text; no non-app network requests during the repair flow.
 
 ## 6. Cross-browser and performance matrix
 

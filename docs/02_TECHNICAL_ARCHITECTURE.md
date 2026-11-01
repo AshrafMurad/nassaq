@@ -63,9 +63,9 @@ records the spike-package versions only.
 
 States: `idle` → `reading` → `review` → `generating` → `verifying` → `ready`, with transitions to `error` and `cancelled`. `ready` is reachable **only** after verified XLSX. Changing any source option clears previous output and restarts preview/validation. Reset terminates current worker/job and revokes old download URL.
 
-Messages are strongly typed discriminated unions with `jobId` (monotonic), `kind`, payload, and no file bytes in error messages. All late results for a prior `jobId` are discarded. Transfer buffers rather than duplicating large arrays; retain original raw bytes only while a file is active so decoding can be repeated. Use a separate worker job or retained raw bytes within worker; do not have two concurrent jobs. Cancelling terminates worker, releases data and creates a fresh worker for next file.
+Messages are strongly typed discriminated unions with `jobId`, `type`, payload, and no file bytes in error messages. All late results for a prior `jobId` are discarded. Transfer buffers rather than duplicating large arrays; retain original raw bytes only while a file is active so decoding can be repeated. Use a separate worker job or retained raw bytes within worker; do not have two concurrent jobs. Cancelling terminates worker, releases data and creates a fresh worker for next file.
 
-**Request types:** `ANALYZE` (file bytes + settings); `GENERATE` (confirmed settings); `APPLY_EDITS` (Phase 6: the complete list of user-approved cell diffs); `CANCEL`. **Response types:** `ANALYSIS` (sample rows, counts, encoding/delimiter assessment, risk summaries/errors), `PROGRESS` (phase only, no fabricated percent), `READY` (verified XLSX ArrayBuffer + summary), `EDITS_APPLIED` (Phase 6: fresh ParseSummary over the effective table), `ERROR` (code + safe location/context). Types cannot share arbitrary `any` payloads.
+**Request types:** `PARSE` (file bytes + settings); `EXPORT` (confirmed settings); `APPLY_EDITS` (Phase 6: the complete list of user-approved cell diffs); `GET_SUGGESTIONS` (Phase 6: one bounded suggestion page); `CANCEL`. **Response types:** `READY` (sample rows, counts, encoding/delimiter assessment and risk summary), `PROGRESS` (phase only, no fabricated percent), `EXPORT_READY` (verified XLSX ArrayBuffer + summary), `EDITS_APPLIED` (Phase 6: fresh `ParseSummary` over the effective table), `SUGGESTIONS_READY` (one bounded page + total count), `ERROR` (code + safe location/context). Types cannot share arbitrary `any` payloads.
 
 **Phase 6 repair messages (2026-11-01):** `APPLY_EDITS` carries the *complete*
 approved diff list (not a delta), each entry `{ row, col, original, proposed, source }`
@@ -77,6 +77,10 @@ analysis over the effective table, and answers `EDITS_APPLIED` with a fresh
 `ParseSummary` (including ≤20 preview rows of the *effective* table, the bounded
 suggestion list, and the applied-edit count). The UI never receives the full table;
 the worker retains `originalRecords` (immutable) plus the approved diff list.
+`GET_SUGGESTIONS { offset, limit }` asks the worker to scan the same effective
+table and return only that window through `SUGGESTIONS_READY`; this makes every
+suggestion reachable without retaining or transferring the complete list. The UI
+uses 10-item pages and ignores messages carrying a stale `jobId`.
 Export re-validates Number columns against the effective records and verifies the
 generated workbook against the effective records (`04` §7), so only user-approved
 edits can diverge from the source. Cancel/reset discards all diffs.

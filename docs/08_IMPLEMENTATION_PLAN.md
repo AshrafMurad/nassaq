@@ -268,6 +268,22 @@ A first run exposed one regression — the preview empty-cell `(فارغ)` label
 disappeared behind the new editable-cell affordance — fixed before the passing
 run. No new dependencies; no network-path changes.
 
+**Repair UX/integrity follow-up (2026-11-01, same authorized Phase 6):** fixed
+the verified-output invalidation gap (a repaired table can no longer download
+older workbook bytes), isolated per-cell confirmation from unrelated staged
+suggestions, made Stage/Unstage/Reject exact, preserved multiline values in a
+textarea editor and restored focus after confirmation. The data preview now
+precedes an initially collapsed repair panel; the selected-file workspace
+expands to 72rem on desktop with a 600px-tall sticky-header table. Suggestions
+use worker-backed 10-item pages through `GET_SUGGESTIONS` / `SUGGESTIONS_READY`,
+with whitespace-visible diffs and separate staged/confirmed badges. Verification
+passed: strict `npm run typecheck`; **218 Vitest tests across 17 suites**;
+production `vite build`; and **177 Playwright checks (59 cases × Chromium,
+Firefox and WebKit)**, including 12 Phase 6 cases covering the combined
+regressions and downloaded-XLSX read-back. Automated visual checks measured a
+1,036px desktop preview at 1,280px and no page overflow at 1,280px or 375px;
+the design detector returned no findings. No dependency or network-path change.
+
 > **Decision note (2026-11-01, owner-authorized scope change):** "explicit
 > per-cell correction (with audit log)" (docs/01 §5) and "manual cell editing /
 > source repair" (§5 below) are **promoted from post-MVP into MVP scope** as
