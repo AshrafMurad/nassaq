@@ -1,14 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { ColumnTypeSelector } from './ColumnTypeSelector';
+import { EditableCell } from './EditableCell';
 import { scanCellRisks } from '@/domain/risks';
 import type { ParseSummary } from '@/domain/protocol';
 import type { RiskCategory } from '@/domain/risks';
+import type { CellEdit } from '@/domain/repairs';
 
 interface DataPreviewTableProps {
   summary: ParseSummary;
   columnTypes: Record<number, 'text' | 'number'>;
   onColumnTypeChange: (colIndex: number, type: 'text' | 'number') => void;
   disabled?: boolean;
+  /** Phase 6: when provided, preview cells expose explicit per-cell editing. */
+  onConfirmEdit?: (edit: CellEdit) => void;
+  /** Phase 6: record-coordinate keys (`row:col`) with staged/approved edits. */
+  editedCells?: ReadonlySet<string>;
 }
 
 export function columnIndexToLetter(index: number): string {
@@ -26,6 +32,8 @@ export function DataPreviewTable({
   columnTypes,
   onColumnTypeChange,
   disabled = false,
+  onConfirmEdit,
+  editedCells,
 }: DataPreviewTableProps) {
   const { t } = useTranslation();
 
@@ -135,6 +143,8 @@ export function DataPreviewTable({
           <tbody>
             {summary.previewRows.map((row, rIdx) => {
               const rowNum = startRowNumber + rIdx;
+              // Record index of this preview row in the worker-held table.
+              const recordRow = (summary.firstRowIsHeader ? 1 : 0) + rIdx;
 
               return (
                 <tr
@@ -155,6 +165,8 @@ export function DataPreviewTable({
                     const hasSurroundingSpace =
                       cellVal.startsWith(' ') || cellVal.endsWith(' ');
                     const risks = scanCellRisks(cellVal);
+                    const isEdited =
+                      editedCells?.has(`${recordRow}:${cIdx}`) ?? false;
 
                     return (
                       <td
@@ -163,8 +175,17 @@ export function DataPreviewTable({
                         className="max-w-xs border-r border-black/20 p-2 align-top text-charcoal last:border-r-0"
                       >
                         <div className="flex items-start justify-between gap-1">
-                          <div className="min-w-0 flex-1 whitespace-pre-wrap break-all">
-                            {isEmpty ? (
+                          <div className="min-w-0 flex-1">
+                            {onConfirmEdit ? (
+                              <EditableCell
+                                row={recordRow}
+                                col={cIdx}
+                                value={cellVal}
+                                isEdited={isEdited}
+                                onConfirmEdit={onConfirmEdit}
+                                disabled={disabled}
+                              />
+                            ) : isEmpty ? (
                               <span className="italic text-muted-foreground select-none">
                                 {t('emptyCellLabel')}
                               </span>

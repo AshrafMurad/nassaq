@@ -11,10 +11,18 @@
  *   7. READY response with summary + preview (full table stays in worker scope)
  *
  * Receives an EXPORT request:
- *   1. Generates single 'Data' sheet XLSX via ExcelJS
- *   2. Re-loads the buffer and verifies all dimensions, cell types, values, formula absence
- *   3. Transfers verified buffer and manifest via EXPORT_READY on 100% pass
- *   4. Fails closed with VERIFY_FAILED on any mismatch
+ *   1. Builds the effective table (original records + approved diffs)
+ *   2. Generates single 'Data' sheet XLSX via ExcelJS
+ *   3. Re-loads the buffer and verifies all dimensions, cell types, values, formula absence
+ *   4. Transfers verified buffer and manifest via EXPORT_READY on 100% pass
+ *   5. Fails closed with VERIFY_FAILED on any mismatch
+ *
+ * Receives an APPLY_EDITS request (Phase 6):
+ *   1. Rebuilds the effective table from immutable originals + the submitted
+ *      approved diff list (fail-closed validation per docs/04 §1a)
+ *   2. Re-runs risk scan, suggestions and numeric eligibility over it
+ *   3. Answers EDITS_APPLIED with a fresh ParseSummary (≤20 preview rows);
+ *      the full table never crosses to the UI
  */
 
 import type {
@@ -37,11 +45,15 @@ import {
   validateAndSummarize,
 } from '@/domain/csv';
 import { revalidateNumericExport } from '@/domain/numeric-policy';
+import { applyEdits, type CellEdit } from '@/domain/repairs';
 import { generateAndVerifyXlsx } from './xlsx-adapter';
 
 interface ActiveJob {
   jobId: string;
+  /** Immutable parsed records; never mutated after parse (docs/04 §1a). */
   records: string[][];
+  /** Approved cell diffs in confirmation order (empty after fresh parse). */
+  approvedEdits: CellEdit[];
   summary: ParseSummary;
 }
 
@@ -77,8 +89,70 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       req.columnTypes,
       req.firstRowIsHeader,
     );
+    return;
+  }
+
+  if (req.type === 'APPLY_EDITS') {
+    handleApplyEdits(req.jobId, req.edits);
   }
 };
+
+/**
+ * Phase 6: replaces the approved diff list, rebuilds the effective table,
+ * and answers with a fresh summary over original + approved diffs.
+ * The full desired list is submitted each time, so undo/redo re-sync is
+ * the same code path as an initial apply. Fails closed on any invalid diff.
+ */
+function handleApplyEdits(jobId: string, edits: CellEdit[]): void {
+  if (!activeJob || activeJob.jobId !== jobId) {
+    post({ type: 'ERROR', jobId, code: 'EDIT_CONFLICT', detail: 'JOB_MISMATCH' });
+    return;
+  }
+
+  const applied = applyEdits(activeJob.records, edits);
+  if (!applied.ok) {
+    post({
+      type: 'ERROR',
+      jobId,
+      code: applied.failure.code,
+      detail: `row ${applied.failure.row + 1}, column ${applied.failure.col + 1}`,
+    });
+    return;
+  }
+
+  // Re-run structural validation, risk scan, numeric eligibility and
+  // suggestion generation over the effective table (docs/04 §1a-4).
+  const result = validateAndSummarize(
+    applied.effective,
+    [],
+    activeJob.summary.delimiter,
+    activeJob.summary.encoding,
+    activeJob.summary.hadBom,
+    activeJob.summary.delimiterConfident,
+    activeJob.summary.firstRowIsHeader,
+  );
+  if (!result.ok) {
+    // Cannot happen for value-only edits that passed cap validation;
+    // fail closed rather than deliver a table that fails checks.
+    post({ type: 'ERROR', jobId, code: result.code, detail: result.detail });
+    return;
+  }
+
+  const summary: ParseSummary = {
+    ...result.summary,
+    appliedEditCount: edits.length,
+  };
+
+  activeJob = { ...activeJob, approvedEdits: [...edits], summary };
+
+  const msg: WorkerMessage = {
+    type: 'EDITS_APPLIED',
+    jobId,
+    appliedCount: edits.length,
+    summary,
+  };
+  post(msg);
+}
 
 function handleParse(
   jobId: string,
@@ -211,6 +285,7 @@ function handleParse(
   activeJob = {
     jobId,
     records,
+    approvedEdits: [],
     summary: result.summary,
   };
 
@@ -233,12 +308,27 @@ async function handleExport(
     return;
   }
 
+  // Phase 6: build the effective table (original + approved diffs). Fail
+  // closed if any approved diff no longer matches — export must never use a
+  // table that differs from what the user confirmed (docs/04 §1a-5).
+  const effective = applyEdits(activeJob.records, activeJob.approvedEdits);
+  if (!effective.ok) {
+    post({
+      type: 'ERROR',
+      jobId,
+      code: effective.failure.code,
+      detail: `row ${effective.failure.row + 1}, column ${effective.failure.col + 1}`,
+    });
+    return;
+  }
+  const exportRecords = effective.effective;
+
   // Defense-in-depth (docs/04 §3): never trust UI-supplied column types.
-  // Re-run the strict entire-column numeric gate inside the worker; a
-  // non-UI caller (or future UI bug) must not silently numeric-convert
-  // ineligible values.
+  // Re-run the strict entire-column numeric gate inside the worker against
+  // the EFFECTIVE table, so an edit cannot smuggle an ineligible value into
+  // a Number column.
   const revalidation = revalidateNumericExport(
-    activeJob.records,
+    exportRecords,
     columnTypes,
     firstRowIsHeader,
   );
@@ -254,8 +344,10 @@ async function handleExport(
 
   post({ type: 'PROGRESS', jobId, phase: 'generating-xlsx' });
 
+  // The adapter verifies the generated workbook against these effective
+  // records cell-by-cell (verify.ts strength unchanged, docs/04 §1a-5).
   const result = await generateAndVerifyXlsx(
-    activeJob.records,
+    exportRecords,
     columnTypes,
     firstRowIsHeader,
     // Surface the verification sub-phase so the UI can show "Verifying cells"

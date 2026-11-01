@@ -171,6 +171,54 @@ export const ar = {
   privacyItemSecurityTitle: 'برمجيات مفتوحة المصدر والإبلاغ الأمني',
   privacyItemSecurityDesc:
     'نسّق برمجية حرة ومفتوحة المصدر بالكامل برخصة MIT. إذا اكتشفت أي ملاحظة أمنية أو خطأ في دقة معالجة البيانات، نرحب بإبلاغنا عبر تبويب الأمان في GitHub.',
+
+  // Phase 6: Repair workflow (explicit, user-confirmed diffs only)
+  repairTitle: 'تصحيح القيم (اختياري، بموافقتك)',
+  repairSubtitle:
+    'لا يتغيّر أي إجراء تلقائيًا. كل تعديل يُعرض كفرق واضح ولا يُطبَّق إلا بعد تأكيدك، مع إمكانية التراجع دائمًا.',
+  repairSuggestionsHeading: 'إصلاحات مقترحة',
+  repairSuggestionListLabel: 'قائمة الإصلاحات المقترحة',
+  repairSuggestionsTotal: '{{shown}} من أصل {{total}} اقتراح',
+  repairNoSuggestions: 'لا توجد إصلاحات مقترحة لهذا الملف.',
+  repairKindTrimWhitespace: 'إزالة المسافات الزائدة في البداية والنهاية',
+  repairKindArabicDigits: 'تحويل الأرقام العربية-الهندية إلى أرقام لاتينية',
+  repairKindNfc: 'توحيد تمثيل المحارف (NFC)',
+  repairKindDecimalComma: 'استبدال الفاصلة العشرية بنقطة',
+  repairKindScientific: 'تحويل الصيغة العلمية إلى رقم عشري عادي',
+  repairSafeBadge: 'تعديل ميكانيكي آمن',
+  repairAmbiguousBadge: 'يحتاج تقديرك',
+  repairStage: 'إضافة إلى المراجعة',
+  repairReject: 'تجاهل',
+  repairUnstage: 'إلغاء من المراجعة',
+  repairStagedHeading: 'التعديلات المرحّلة',
+  repairAffectedCount: 'ستتبدّل {{count}} خلية',
+  repairConfirmStaged: 'تأكيد وتطبيق التعديلات',
+  repairClearStaged: 'إلغاء الكل',
+  repairOriginal: 'القيمة الحالية',
+  repairProposed: 'القيمة المقترحة',
+  repairUndo: 'تراجع',
+  repairRedo: 'إعادة',
+  repairHistoryTitle: '{{count}} تعديل مؤكد',
+  repairHistoryFull:
+    'سجل التعديلات ممتلئ. استخدم التراجع لتوفير مساحة، أو أعد قراءة الملف للبدء من جديد.',
+  repairAnnounceApplied: 'تم تطبيق {{count}} تعديل.',
+  repairAnnounceUndone: 'تم التراجع عن آخر تعديل.',
+  repairAnnounceRedone: 'تمت إعادة تطبيق التعديل.',
+  repairEditCell: 'تعديل الخلية في الصف {{row}}، العمود {{col}}',
+  repairEditSave: 'تأكيد التعديل',
+  repairEditCancel: 'إلغاء التعديل',
+  repairEditUnchanged: 'لم يتغيّر شيء.',
+  repairEditTooLong: 'القيمة المقترحة تتجاوز الحد الأقصى (32,767 محرفًا).',
+  repairEditedBadge: 'معدّلة',
+  repairCellRef: 'الصف {{row}}، العمود {{col}}',
+  repairDiscardWarningTitle: 'إعادة القراءة ستلغي التعديلات المؤكدة',
+  repairDiscardWarningBody:
+    'سيتم تجاهل {{count}} تعديل مؤكد عند إعادة قراءة الملف بالإعدادات الجديدة.',
+  repairDiscardConfirm: 'تجاهل التعديلات والمتابعة',
+  repairDiscardCancel: 'الرجوع إلى التعديل',
+  errorEditConflict:
+    'تعذّر تطبيق أحد التعديلات لأن القيمة تغيّرت في هذه الأثناء. تم تحديث العرض؛ راجع التعديلات وأعد المحاولة.',
+  errorEditInvalid: 'تعديل غير صالح في {{detail}}. لم يتم تطبيق أي تغيير.',
 };
 
 export type Translation = typeof ar;

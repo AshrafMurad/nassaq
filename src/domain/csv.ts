@@ -14,6 +14,7 @@ import Papa from 'papaparse';
 import type { DelimiterChar, ColumnMeta, ParseSummary, PreviewRow } from './protocol';
 import { scanTableRisks } from './risks';
 import { validateColumnNumeric } from './numeric-policy';
+import { generateSuggestions } from './suggestions';
 import {
   MAX_COLUMNS,
   MAX_DATA_ROWS,
@@ -307,6 +308,9 @@ export function validateAndSummarize(
     unevenRowIndices,
     riskSummary: riskAnalysis.summary,
     totalRisks: riskAnalysis.totalRisks,
+    // Fresh parse: no edits exist yet; suggestions target the original table.
+    suggestions: generateSuggestions(records, firstRowIsHeader),
+    appliedEditCount: 0,
   };
 
   return { ok: true, summary, table: records };

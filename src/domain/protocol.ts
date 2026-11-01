@@ -6,6 +6,8 @@
 
 import type { RiskCategory } from './risks';
 import type { ExportManifest } from './export-manifest';
+import type { CellEdit } from './repairs';
+import type { SuggestionSet } from './suggestions';
 
 // ---------------------------------------------------------------------------
 // Supported encoding identifiers
@@ -52,10 +54,25 @@ export interface WorkerRequestExport {
   firstRowIsHeader: boolean;
 }
 
+/**
+ * Phase 6: replace the approved diff list for the active job.
+ * The UI always sends the COMPLETE desired diff list (not a delta); the
+ * worker rebuilds the effective table as original records + diffs, re-runs
+ * risk/suggestion/numeric analysis, and answers EDITS_APPLIED. Any diff that
+ * fails validation (stale original, out of bounds, over cap) fails closed.
+ */
+export interface WorkerRequestApplyEdits {
+  type: 'APPLY_EDITS';
+  jobId: string;
+  /** Complete approved diff list in confirmation order. */
+  edits: CellEdit[];
+}
+
 export type WorkerRequest =
   | WorkerRequestParse
   | WorkerRequestCancel
-  | WorkerRequestExport;
+  | WorkerRequestExport
+  | WorkerRequestApplyEdits;
 
 // ---------------------------------------------------------------------------
 // Messages sent FROM the worker TO the main thread
@@ -153,6 +170,10 @@ export interface ParseSummary {
   riskSummary: Record<RiskCategory, number>;
   /** Total number of cell risk flags detected. */
   totalRisks: number;
+  /** Phase 6: bounded suggestion list + total count over the effective table. */
+  suggestions: SuggestionSet;
+  /** Phase 6: number of currently approved cell edits (dirty cells may differ). */
+  appliedEditCount: number;
 }
 
 /** Parse completed successfully. */
@@ -170,6 +191,19 @@ export interface WorkerMsgExportReady {
   manifest: ExportManifest;
 }
 
+/**
+ * Phase 6: the submitted approved diff list was validated and applied.
+ * The fresh summary describes the EFFECTIVE table (original + diffs):
+ * preview rows, risk counts, numeric eligibility and suggestions.
+ */
+export interface WorkerMsgEditsApplied {
+  type: 'EDITS_APPLIED';
+  jobId: string;
+  /** Number of edits accepted in this sync (equal to edits.length). */
+  appliedCount: number;
+  summary: ParseSummary;
+}
+
 /** Stable error codes for the import pipeline. */
 export type ImportErrorCode =
   | 'DECODE_FAILED'
@@ -184,7 +218,9 @@ export type ImportErrorCode =
   | 'ZERO_COLUMNS'
   | 'NO_DATA_ROWS'
   | 'EXPORT_FAILED'
-  | 'VERIFY_FAILED';
+  | 'VERIFY_FAILED'
+  | 'EDIT_CONFLICT'
+  | 'EDIT_INVALID';
 
 export interface WorkerMsgError {
   type: 'ERROR';
@@ -200,4 +236,5 @@ export type WorkerMessage =
   | WorkerMsgDelimiterReview
   | WorkerMsgReady
   | WorkerMsgExportReady
+  | WorkerMsgEditsApplied
   | WorkerMsgError;

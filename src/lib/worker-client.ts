@@ -14,10 +14,12 @@ import type {
   WorkerMsgDelimiterReview,
   WorkerMsgReady,
   WorkerMsgExportReady,
+  WorkerMsgEditsApplied,
   WorkerMsgError,
   SupportedEncoding,
   DelimiterChar,
 } from '@/domain/protocol';
+import type { CellEdit } from '@/domain/repairs';
 import { MAX_FILE_BYTES } from '@/domain/limits';
 
 export interface WorkerCallbacks {
@@ -26,6 +28,7 @@ export interface WorkerCallbacks {
   onDelimiterReview?: (msg: WorkerMsgDelimiterReview) => void;
   onReady: (msg: WorkerMsgReady) => void;
   onExportReady?: (msg: WorkerMsgExportReady) => void;
+  onEditsApplied?: (msg: WorkerMsgEditsApplied) => void;
   onError: (msg: WorkerMsgError) => void;
 }
 
@@ -105,6 +108,9 @@ export class WorkerClient {
           case 'EXPORT_READY':
             callbacks.onExportReady?.(msg);
             break;
+          case 'EDITS_APPLIED':
+            callbacks.onEditsApplied?.(msg);
+            break;
           case 'ERROR':
             callbacks.onError(msg);
             break;
@@ -165,6 +171,23 @@ export class WorkerClient {
       jobId: this.activeJobId,
       columnTypes,
       firstRowIsHeader,
+    });
+    return true;
+  }
+
+  /**
+   * Phase 6: sync the complete approved diff list to the worker.
+   * The worker rebuilds the effective table and answers EDITS_APPLIED.
+   */
+  applyEdits(edits: CellEdit[]): boolean {
+    if (!this.worker || !this.activeJobId) {
+      return false;
+    }
+
+    this.worker.postMessage({
+      type: 'APPLY_EDITS',
+      jobId: this.activeJobId,
+      edits,
     });
     return true;
   }

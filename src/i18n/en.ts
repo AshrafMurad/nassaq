@@ -173,4 +173,53 @@ export const en: Translation = {
   privacyItemSecurityTitle: 'Open Source & Security Disclosure',
   privacyItemSecurityDesc:
     'Nassaq is 100% free and open source under the MIT license. If you discover a security concern or data integrity issue, please report it via GitHub Security Advisories.',
+
+  // Phase 6: Repair workflow (explicit, user-confirmed diffs only)
+  repairTitle: 'Repair values (optional, your choice)',
+  repairSubtitle:
+    'Nothing changes automatically. Every edit is shown as a clear diff and applied only after your confirmation, with undo always available.',
+  repairSuggestionsHeading: 'Suggested fixes',
+  repairSuggestionListLabel: 'Suggested fix list',
+  repairSuggestionsTotal: '{{shown}} of {{total}} suggestions',
+  repairNoSuggestions: 'No suggested fixes for this file.',
+  repairKindTrimWhitespace: 'Remove surrounding whitespace',
+  repairKindArabicDigits: 'Convert Arabic-Indic digits to Latin digits',
+  repairKindNfc: 'Normalize character representation (NFC)',
+  repairKindDecimalComma: 'Replace decimal comma with a dot',
+  repairKindScientific: 'Expand scientific notation to a plain decimal',
+  repairSafeBadge: 'Safe mechanical fix',
+  repairAmbiguousBadge: 'Needs your judgment',
+  repairStage: 'Stage for review',
+  repairReject: 'Reject',
+  repairUnstage: 'Remove from review',
+  repairStagedHeading: 'Staged edits',
+  repairAffectedCount: '{{count}} cell(s) will change',
+  repairConfirmStaged: 'Confirm and apply edits',
+  repairClearStaged: 'Clear all',
+  repairOriginal: 'Original',
+  repairProposed: 'Proposed',
+  repairUndo: 'Undo',
+  repairRedo: 'Redo',
+  repairHistoryTitle: '{{count}} confirmed change(s)',
+  repairHistoryFull:
+    'The edit history is full. Use Undo to free space, or re-parse the file to start fresh.',
+  repairAnnounceApplied: '{{count}} edit(s) applied.',
+  repairAnnounceUndone: 'Last change undone.',
+  repairAnnounceRedone: 'Change reapplied.',
+  repairEditCell: 'Edit cell at row {{row}}, column {{col}}',
+  repairEditSave: 'Confirm edit',
+  repairEditCancel: 'Cancel edit',
+  repairEditUnchanged: 'Nothing changed.',
+  repairEditTooLong:
+    'The proposed value exceeds the maximum length (32,767 characters).',
+  repairEditedBadge: 'edited',
+  repairCellRef: 'Row {{row}}, column {{col}}',
+  repairDiscardWarningTitle: 'Re-parsing will discard confirmed edits',
+  repairDiscardWarningBody:
+    '{{count}} confirmed edit(s) will be discarded when the file is re-read with the new settings.',
+  repairDiscardConfirm: 'Discard edits and continue',
+  repairDiscardCancel: 'Keep editing',
+  errorEditConflict:
+    'An edit could not be applied because the value changed in the meantime. The view was refreshed; review your edits and try again.',
+  errorEditInvalid: 'Invalid edit at {{detail}}. No change was applied.',
 };
