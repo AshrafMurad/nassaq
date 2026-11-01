@@ -52,6 +52,19 @@ All data below is conceptual fixture content; expected workbook cell type in Tex
 
 Additional fixtures: terminal newlines `a\n`, `a\n\n`, CRLF and CR; embedded null; Unicode normalization precomposed vs decomposed; Arabic joining and bidi marks `U+200E/U+200F`; duplicate headers; blank header fields; literal U+FFFD; malformed UTF-8 byte sequence; wrong/manual encoding selection; delimiter ties/one-column file; 32,767 vs 32,768 UTF-16 units; limits at/above 2 MiB, 10,000 rows, 50 columns, 100,000 cells.
 
+**Phase 6 repair fixture classes (synthetic only):** cells with surrounding
+whitespace (trim proposals), Arabic-Indic digits (safe digit mapping), non-NFC
+decomposed text (safe NFC proposal), decimal-comma tokens (ambiguous proposal),
+scientific notation with exact decimal expansion (ambiguous proposal), and
+formula-like/date-shaped/leading-zero cells that must yield **no** proposal.
+Required behaviors: edit → export → XLSX read-back equality (leading zeros,
+Arabic text, 20-digit IDs, formula-like strings introduced *by an edit* still
+literal, multiline cells); undo → export reflects reverted values; reject
+suggestion → export unchanged; stale-edit conflict → fail closed
+(`EDIT_CONFLICT`); over-cap proposal → refused (`EDIT_INVALID`); cancel/reset →
+diffs cleared. E2E adds: detect → suggest → preview → confirm → apply →
+download; zero non-app network requests across the whole repair flow.
+
 `literal-xlsx-escapes.csv` covers literal `_x0041_`/`_x000D_`, a header containing
 an escape-looking string, uppercase/lowercase hex, adjacent and shared-underscore
 sequences, nested `_x005F_` strings, XML metacharacters, and values after the
@@ -84,6 +97,8 @@ contains an embedded LF that its existing exact-value assertion requires.
 | `filename` | Path traversal, XSS-like name, control/bidi override chars, empty basename |
 | `verifyWorkbook` | Types, content, dimensions, formula properties, mismatch rejection, empty string vs missing |
 | `workerProtocol` | Job ID stale result, phase errors, cancellation, no PII in error strings |
+| `repairs` (Phase 6) | Apply/revert purity (originals never mutated), stale-original rejection (`EDIT_CONFLICT`), bounds/cap refusal (`EDIT_INVALID`), undo/redo consistency, effective-table rebuild order |
+| `suggestions` (Phase 6) | Safe vs ambiguous classification per catalog, no invented data (proposal derivable from original alone), bounding (50 + total), no proposals for LEADING_ZERO/LONG_NUMBER/DATE_SHAPED/FORMULA_LIKE/MIXED_DIRECTION |
 | `localization` | Required strings exist in AR+EN; dir and locale agree |
 
 Prefer table-driven tests for deterministic rules. Test CSV parsing and XLSX verification **through vendor adapter** in browser-style tests; mocks are insufficient for the central integrity guarantee.
@@ -100,6 +115,7 @@ Prefer table-driven tests for deterministic rules. Test CSV parsing and XLSX ver
 8. **Privacy:** intercept all outgoing requests after app load; unique CSV sentinel never appears. Verify no localStorage/IndexedDB persistence of content.
 9. **Recovery:** change source after error, cancel work, switch language during review; UI state is not corrupted.
 10. **A11y:** keyboard-only selection and download, accessible error focus, dir auto for mixed-script content.
+11. **Repair (Phase 6):** detect → suggest → preview → confirm → apply → download with read-back equality; undo → download reflects reverted values; reject suggestion → unchanged export; cancel/reset clears diffs; editing a cell to a formula-like string still exports literal text; no non-app network requests during the repair flow.
 
 ## 6. Cross-browser and performance matrix
 

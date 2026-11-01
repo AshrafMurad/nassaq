@@ -244,6 +244,73 @@ All P0 requirements and release criteria are satisfied.
 
 **Acceptance:** all P0 requirements and release checklist green. **Tests:** Vitest, Playwright, build, audit, manual Safari/Firefox/open-in-Excel. **Depends:** phase 4.
 
+## Phase 6 — Data repair workflow: detect → explain → preview → confirm → apply (2.0–3.0 h)
+
+**Objective:** let the user fix individual cell values through explicit, confirmed
+diffs — never automatically — while keeping originals, verification and privacy
+invariants intact.
+
+**Execution evidence (2026-11-01, branch `feat/phase-6-repair`, based on
+`fix/audit-p0-uneven-rows` @ `bfac996` — the commit the remediation audit
+`docs/audits/DATA_REPAIR_WORKFLOW_AUDIT.md` verified; `origin/main` did not yet
+contain that remediation):** Phase 6 **passed**: strict `npm run typecheck`,
+**209 Vitest unit tests across 16 suites** (172 pre-existing kept green +
+`repairs.test.ts` 17, `suggestions.test.ts` 16, `repair-export.test.ts` 4),
+production `vite build` (static `dist/`), and **66 targeted Playwright checks
+(22 cases × Chromium/Firefox/WebKit)** across `phase3.spec.ts`,
+`phase4.spec.ts`, and the new `phase6-repair.spec.ts` (7 cases: full
+suggest→preview→confirm→apply→download round-trip, undo→download revert,
+reject→unchanged export, manual edit introducing `=1+1` exporting as literal
+text, delimiter-change discard warning confirm/cancel, reset clearing diffs,
+and zero non-app network requests across the whole flow). Downloaded workbooks
+were reloaded with an independent ExcelJS instance and compared cell-exactly.
+A first run exposed one regression — the preview empty-cell `(فارغ)` label
+disappeared behind the new editable-cell affordance — fixed before the passing
+run. No new dependencies; no network-path changes.
+
+> **Decision note (2026-11-01, owner-authorized scope change):** "explicit
+> per-cell correction (with audit log)" (docs/01 §5) and "manual cell editing /
+> source repair" (§5 below) are **promoted from post-MVP into MVP scope** as
+> Phase 6 / FR-13. The "audit log" is the in-memory, session-scoped diff
+> history (undo/redo) — nothing is persisted. **PR-06 still holds in full:**
+> repair is **never automatic** — every value change is an explicit diff that
+> the user previews (original vs proposed, with row/column references and
+> affected-cell counts) and confirms (per suggestion or bulk); rejecting a
+> suggestion changes nothing; originals stay immutable and available for
+> comparison until reset; `verify.ts` strength is unchanged and now compares
+> the generated workbook against original + approved diffs.
+
+**Tasks:** `APPLY_EDITS`/`EDITS_APPLIED` typed worker messages with `jobId`;
+pure `src/domain/repairs.ts` (diff model, effective-table fold, bounds/cap
+validation, stale-diff detection) and `src/domain/suggestions.ts` (bounded,
+classified safe/ambiguous catalog per docs/04 §5a); worker retains immutable
+`originalRecords` + approved diffs, re-runs risk scan, suggestions and numeric
+eligibility over the effective table, re-validates Number columns at EXPORT
+against the effective table; app repair state with staged/confirmed diffs and a
+bounded undo/redo stack; re-parse warning before discarding diffs; UI
+suggestion list, diff preview with affected-cell count, per-suggestion
+Apply/Reject, bulk confirm, editable cells with re-validation feedback,
+Undo/Redo controls; full AR/EN i18n; accessibility (focus management,
+`aria-live`, non-color severity, `<bdi dir="auto">`); no new dependencies; no
+network changes; unit + integration + E2E tests per docs/07.
+
+**Expected modules:** `src/domain/protocol.ts` (extend), `src/domain/repairs.ts`,
+`src/domain/suggestions.ts`, `src/worker/import.worker.ts` (extend),
+`src/lib/worker-client.ts` (extend), `src/app/repair-state.ts`,
+`src/app/import-state.ts` (extend), `src/components/import/{RepairSuggestions,RepairHistory,DataPreviewTable,ImportDetails}.tsx`,
+`src/i18n/{ar,en}.ts`, `tests/unit/{repairs,suggestions}.test.ts`,
+`tests/unit/repair-export.test.ts`, `tests/e2e/phase6-repair.spec.ts`.
+
+**Acceptance:** no value changes without explicit confirmation; originals
+immutable; export = original + approved diffs passing full read-back
+verification; edits introducing formula-like text export as literal text;
+proposals respect all caps; undo then export reflects reverted values; reject
+leaves export unchanged; cancel/reset clears diffs; changing
+encoding/delimiter/header warns before discarding diffs; zero non-app network
+requests during repair. **Tests:** `repairs.test.ts`, `suggestions.test.ts`,
+repair-export integration, targeted Playwright phase-6 spec plus phase-3/4
+specs across Chromium/Firefox/WebKit. **Depends:** phase 5.
+
 ## 3. Estimate summary and sequencing
 
 | Phase | Estimate (hours) | Milestone |
@@ -254,7 +321,8 @@ All P0 requirements and release criteria are satisfied.
 | 3 — Review / type policies | 1.5–2.0 | User-approved settings |
 | 4 — Export / verify | 2.0–2.5 | Safe XLSX ready |
 | 5 — QA / release | 1.5–2.0 | Publish-ready MVP |
-| **Total** | **9.0–12.5** | Aspirational focused-engineering window |
+| 6 — Repair workflow | 2.0–3.0 | Confirmed-diff cell repair |
+| **Total** | **11.0–15.5** | Aspirational focused-engineering window |
 
 **Schedule rule:** 12.5 is near the 8–12 hour target, not a guarantee; a more conservative allocation for comprehensive release QA is 15–24+ hours. Do not skip security/verification to fit the target. Parallelize only documentation/UI copy independently; share one integration baseline. Recommended AI coding sessions: **one phase per session** after reading `AGENTS.md` and all referenced docs, with a review gate between phases.
 
@@ -268,6 +336,7 @@ All P0 requirements and release criteria are satisfied.
 | P3 | User reviews risks, default Text, Number rejects unsafe values, preview safe |
 | P4 | Full cell-by-cell XLSX comparison and block on mismatch |
 | P5 | E2E downloaded output + real app smoke + privacy/no outgoing file data |
+| P6 | Repairs apply only after explicit confirmation; export/verify over effective table; undo/undo-reset/reject behave exactly |
 
 Any failed critical gate stops moving to next phase. A “working download” that cannot be verified does **not** meet MVP.
 
@@ -277,7 +346,9 @@ Any failed critical gate stops moving to next phase. A “working download” th
 
 **P1 improvements:** clearer contextual explanations, enhanced download summary, keyboard focus polish, broader browser monitoring, simple static help/privacy page.
 
-**Post-MVP only:** advanced workbook type maps, multiple input files, XLSX imports, saved presets, decimal/date conversions, manual cell editing, bigger files/streamed XLSX writer, more encodings, additional delimiters, source repair, third-party system integrations, AI.
+**Post-MVP only:** advanced workbook type maps, multiple input files, XLSX imports, saved presets, decimal/date conversions, bigger files/streamed XLSX writer, more encodings, additional delimiters, third-party system integrations, AI.
+
+**Promoted to MVP by owner decision (Phase 6, 2026-11-01):** manual cell editing and source repair, delivered as the explicit confirmed-diff workflow of FR-13 (see the Phase 6 decision note above). General-purpose spreadsheet editing and bulk data cleaning remain out of scope.
 
 ## 6. AI-agent execution pattern
 

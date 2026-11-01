@@ -12,6 +12,19 @@
 6. The generated workbook is **reopened and checked** for the expected cells and types before download. A failed check prevents delivery.
 7. “Preserved” means the chosen string values and supported cell types are identical after our own XLSX read-back. This cannot guarantee display formatting in every spreadsheet program, or recover already-damaged upstream CSV bytes.
 
+### 1a. Repair-integrity invariants (Phase 6, 2026-11-01)
+
+These extend, and never relax, invariants 1–7. PR-06 remains authoritative: repair is **never automatic**.
+
+1. **Immutable originals.** The parsed `originalRecords` table is retained unchanged for the whole job. Repair functions never mutate any table in place; every application produces a new array.
+2. **Edits are explicit diffs.** Each edit is `{ row, col, original, proposed, source: 'manual' | 'suggestion' }` with 0-based table coordinates. `original` must equal the running effective value at apply time; a mismatch fails closed (`EDIT_CONFLICT`) — stale edits are never silently dropped or forced.
+3. **No application without confirmation.** Suggestions are passive proposals. A value changes only after an explicit user Confirm (per suggestion or bulk). Rejecting a suggestion must leave the effective table unchanged.
+4. **Effective table = original + approved diffs.** Export, risk scan, suggestion generation and numeric-eligibility analysis all run over the effective table built by folding the approved diff list (in confirmation order) over the originals.
+5. **Verifier compares against the effective table.** `verify.ts` is unchanged in strength: the generated workbook must match `original + approved diffs` cell-for-cell. Edits that introduce formula-like text (`=`, `+`, `-`, `@`) still export as literal text cells (invariant 2).
+6. **Caps apply to new content.** A proposed value must satisfy the same caps as parsed content: ≤32,767 UTF-16 units per cell, within table bounds; otherwise the edit is refused (`EDIT_INVALID`) with its position — never truncated.
+7. **Undo/redo consistency.** Undo/redo operate on the bounded, ordered transaction history of confirmed edits. The history is bounded fail-closed: when the cap (50 transactions) is reached, further edits are refused with a visible localized notice until the user undoes or re-parses — the oldest history is never silently truncated (a truncated prefix would break original-chained diffs). After any undo/redo, the effective table is rebuilt from the originals plus the remaining approved diffs; the worker is re-synced before further export. Changing encoding, delimiter or header mode re-parses from the immutable raw bytes and **discards all diffs after an explicit warning**; Cancel/reset discards all diffs immediately.
+8. **No invention, no silent loss.** Suggestions never invent information absent from the cell, and the default catalog never proposes irreversible transforms as "safe". Safe proposals are bijective/mechanical (no information loss); anything judgment-dependent (e.g. trimming, decimal-separator rewriting, leading-zero removal, notation expansion) is classified ambiguous and never applied without confirmation.
+
 ## 2. Canonical data model and mapping
 
 **Raw input:** immutable bytes held in worker during job.  
@@ -82,6 +95,21 @@ Risk scanner runs **after decoding and parsing**, before export. It may flag:
 - Mixed-direction text: informational only.
 
 **Scanner output is explanatory only** for text columns; never mutate values or prohibit safe text export merely because the source looks dangerous. Protection is achieved by XLSX **cell typing**, not by skipping warnings.
+
+### 5a. Suggestion catalog (Phase 6)
+
+Suggestions are *optional* proposed values mapped from detected risk/issue classes. They are generated over the effective table, delivered as a bounded list (first 50 + total count), and never self-apply. Classification: `safe` = mechanical and lossless (bijective transform of the original); `ambiguous` = requires user judgment (may lose characters or change meaning).
+
+| Detected class | Suggestion kind | Classification | Proposed value |
+|---|---|---|---|
+| Surrounding whitespace (space/tab at either end) | `TRIM_SURROUNDING_WHITESPACE` | **ambiguous** | value without leading/trailing whitespace |
+| Arabic-Indic digits `٠-٩` present | `ARABIC_INDIC_TO_ASCII_DIGITS` | **safe** | bijective `٠-٩` → `0-9` mapping |
+| Not NFC-canonical | `NFC_NORMALIZE` | **safe** | Unicode NFC form (canonical equivalence; no information loss) |
+| `DECIMAL_SEPARATOR_AMBIGUITY` (`^-?\d+,\d+$`) | `DECIMAL_COMMA_TO_DOT` | **ambiguous** | `,` → `.` (could be a thousands separator — user judgment) |
+| `SCIENTIFIC_NOTATION` expanding exactly to a plain decimal | `SCIENTIFIC_TO_DECIMAL` | **ambiguous** | exact decimal expansion of the notation |
+| `LEADING_ZERO`, `LONG_NUMBER`, `DATE_SHAPED`, `FORMULA_LIKE`, `MIXED_DIRECTION` | — | — | **no proposal** (no mechanical, judgment-free fix; these are safe as text) |
+
+Every proposal is derivable purely from the cell's own value (no invention), displayed with row/column references and the original value, and reversible via undo after confirmation.
 
 ## 6. XLSX creation rules
 

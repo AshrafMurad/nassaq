@@ -65,7 +65,21 @@ States: `idle` → `reading` → `review` → `generating` → `verifying` → `
 
 Messages are strongly typed discriminated unions with `jobId` (monotonic), `kind`, payload, and no file bytes in error messages. All late results for a prior `jobId` are discarded. Transfer buffers rather than duplicating large arrays; retain original raw bytes only while a file is active so decoding can be repeated. Use a separate worker job or retained raw bytes within worker; do not have two concurrent jobs. Cancelling terminates worker, releases data and creates a fresh worker for next file.
 
-**Request types:** `ANALYZE` (file bytes + settings); `GENERATE` (confirmed settings); `CANCEL`. **Response types:** `ANALYSIS` (sample rows, counts, encoding/delimiter assessment, risk summaries/errors), `PROGRESS` (phase only, no fabricated percent), `READY` (verified XLSX ArrayBuffer + summary), `ERROR` (code + safe location/context). Types cannot share arbitrary `any` payloads.
+**Request types:** `ANALYZE` (file bytes + settings); `GENERATE` (confirmed settings); `APPLY_EDITS` (Phase 6: the complete list of user-approved cell diffs); `CANCEL`. **Response types:** `ANALYSIS` (sample rows, counts, encoding/delimiter assessment, risk summaries/errors), `PROGRESS` (phase only, no fabricated percent), `READY` (verified XLSX ArrayBuffer + summary), `EDITS_APPLIED` (Phase 6: fresh ParseSummary over the effective table), `ERROR` (code + safe location/context). Types cannot share arbitrary `any` payloads.
+
+**Phase 6 repair messages (2026-11-01):** `APPLY_EDITS` carries the *complete*
+approved diff list (not a delta), each entry `{ row, col, original, proposed, source }`
+with 0-based table coordinates. The worker rebuilds the effective table as
+`original records + approved diffs` (validating every diff: bounds, cap, and that
+`original` matches the running effective value — any mismatch fails closed with
+`EDIT_CONFLICT`), re-runs the risk scan, suggestion generation and numeric-eligibility
+analysis over the effective table, and answers `EDITS_APPLIED` with a fresh
+`ParseSummary` (including ≤20 preview rows of the *effective* table, the bounded
+suggestion list, and the applied-edit count). The UI never receives the full table;
+the worker retains `originalRecords` (immutable) plus the approved diff list.
+Export re-validates Number columns against the effective records and verifies the
+generated workbook against the effective records (`04` §7), so only user-approved
+edits can diverge from the source. Cancel/reset discards all diffs.
 
 **Core domain structures (specification, not source code):**
 
@@ -73,6 +87,8 @@ Messages are strongly typed discriminated unions with `jobId` (monotonic), `kind
 - `ParsedTable`: row arrays `string[][]`, separate header-mode metadata, source row indices (1-based), never objects keyed by potentially duplicated names.
 - `Issue`: stable code; severity `info | review | blocking`; 1-based CSV row and column if applicable; translated UI message key; never include real data in logs.
 - `ExportManifest`: source SHA-256 is **not** needed for MVP; expected dimensions, encoding/delimiter choices, per-cell expected representation, issue counts, and verification verdict. The manifest exists in memory only.
+- `CellEdit` (Phase 6): `{ row, col, original, proposed, source: 'manual' | 'suggestion' }` — an explicit diff on the parsed table. `original` is the expected effective value at apply time (stale-diff detection). Edits live only in worker/app memory for the active job.
+- `SuggestionItem` (Phase 6): `{ id, row, col, kind, classification: 'safe' | 'ambiguous', original, proposed }` — an *optional* proposed value derived mechanically from a detected risk/issue class. Suggestions never invent information and never apply themselves; classification and the bounded catalog are specified in `04` §5a and `05` §2.
 
 ### Preserving values
 
@@ -90,7 +106,7 @@ parsed strings remain the read-back verification expectations; see `04` §6.
 4. **Detect delimiter on sample:** evaluate `,`, `;`, tab, `|` using quote-aware parsing; prefer stable widths and low parse errors; tie/one-column is review-required. Full parse uses chosen delimiter, `header:false`, `dynamicTyping:false`, `skipEmptyLines:false`, `comments:false`.
 5. **Parse & validate full data:** detect malformed quotes, inconsistent field counts, input caps, long cells. Handle final row separator deterministically (see encoding spec). Classify risk patterns without changing values.
 6. **Send preview:** first 20 rows and diagnostics only. No full data matrix crosses to React; worker holds table until generated/reset.
-7. **Confirm:** user confirms uncertain choices and selects cell types; text is default, number requires entire-column validation.
+7. **Confirm:** user confirms uncertain choices and selects cell types; text is default, number requires entire-column validation. Optionally (Phase 6) the user stages repairs: suggestions and manual cell edits are previewed as diffs, then applied on explicit confirmation via `APPLY_EDITS`; the worker answers with a fresh review summary over the effective table. Undo/redo re-order the approved diff list and re-sync the worker.
 8. **Build:** one sheet (`Data`), header text if enabled; exact string cell assignments, optional safe number values, all cells written, including empty strings; no formulas, macros, hyperlinks or external references generated.
 9. **Verify:** parse XLSX bytes back with ExcelJS (in same worker) and compare dimensions, types and values for every cell. Verification failure is fatal. UI never exposes unverified bytes.
 10. **Deliver:** transfer verified `ArrayBuffer` to UI; create `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` Blob and object URL. Revoke on new job/reset/unmount (not immediately while download is starting).
@@ -131,7 +147,7 @@ nassaq/
 
 ## 7. Error, deployment, compatibility
 
-Error messages use stable codes: `FILE_TOO_LARGE`, `EMPTY_FILE`, `UNSUPPORTED_FILE`, `DECODE_FAILED`, `ENCODING_REVIEW`, `DELIMITER_REVIEW`, `MALFORMED_CSV`, `COLUMN_COUNT_MISMATCH`, `LIMIT_EXCEEDED`, `INVALID_NUMBER`, `CELL_TOO_LONG`, `EXPORT_FAILED`, `VERIFY_FAILED`, `WORKER_UNAVAILABLE`. UI translates into Arabic/English with suggested corrective action; never print full row content to console or crash-report services.
+Error messages use stable codes: `FILE_TOO_LARGE`, `EMPTY_FILE`, `UNSUPPORTED_FILE`, `DECODE_FAILED`, `ENCODING_REVIEW`, `DELIMITER_REVIEW`, `MALFORMED_CSV`, `COLUMN_COUNT_MISMATCH`, `LIMIT_EXCEEDED`, `INVALID_NUMBER`, `CELL_TOO_LONG`, `EXPORT_FAILED`, `VERIFY_FAILED`, `WORKER_UNAVAILABLE`, `EDIT_CONFLICT` (approved diff no longer matches the effective cell — stale or conflicting edit list), `EDIT_INVALID` (proposed value violates caps/bounds). UI translates into Arabic/English with suggested corrective action; never print full row content to console or crash-report services.
 
 Ship **`dist/` only** on Cloudflare Pages, Netlify, Vercel static, GitHub Pages with correct base path, or a basic HTTP static server. Serve over HTTPS with MIME types correct for worker assets. Deploy no API/server functions. Use first-party bundled fonts or system fonts; don't fetch Google Fonts. Recommend current stable Chrome, Edge, Firefox and Safari (Vite current baseline includes Safari 16.4+); older platforms may be unsupported. Browser claims require real matrix evidence before release.
 

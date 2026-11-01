@@ -2,13 +2,13 @@
 
 **Applies to:** repository root and all descendants.  
 
-**Current work mode:** **Phases 0 through 5 complete; MVP release candidate 0.1.0 ready.** See `docs/08_IMPLEMENTATION_PLAN.md` for phase evidence.
+**Current work mode:** **Phases 0 through 6 complete (Phase 6 explicit confirmed-diff cell repair, authorized and implemented 2026-11-01).** See `docs/08_IMPLEMENTATION_PLAN.md` for phase evidence and the Phase 6 decision note. Do not start a further phase without explicit authorization.
 
 **Read before editing:** all relevant `/docs` files, especially `04_DATA_INTEGRITY_AND_VALIDATION.md` and `08_IMPLEMENTATION_PLAN.md`.
 
 ## 1. Mission and immutable product boundaries
 
-Nassaq is a free/open-source, privacy-first, browser-only CSV-to-XLSX validation/conversion app for Arabic and English users. Its job is to prevent accidental data changes when a person prepares CSV for Excel. **CSV input only**, one static page, no backend/database/auth, no server upload, no analytics, no AI, no external requests carrying any part of a selected file. Process in browser; generate XLSX only after full validation. Arabic is the default UI language and works RTL; English works LTR.
+Nassaq is a free/open-source, privacy-first, browser-only CSV-to-XLSX validation/conversion app for Arabic and English users. Its job is to prevent accidental data changes when a person prepares CSV for Excel. **CSV input only**, one static page, no backend/database/auth, no server upload, no analytics, no AI, no external requests carrying any part of a selected file. Process in browser; generate XLSX only after full validation. Arabic is the default UI language and works RTL; English works LTR. Phase 6 adds an **explicit, user-confirmed cell repair workflow** (suggest → preview diff → confirm → apply → undo/redo): repair is never automatic, originals stay immutable, and the repair history is in-memory only.
 
 The MVP caps are **2 MiB input, 10,000 data rows, 50 columns, 100,000 data cells, 32,767 UTF-16 units per cell**. No partial successful export when limits are exceeded. The code should offer clear human-readable refusal.
 
@@ -50,6 +50,7 @@ Use typed messages with `jobId`; worker retains full parsed table, main UI gets 
 8. Preserve every CSV record (except parser's provable phantom record for a terminal delimiter) and every column; no silent uneven-row padding or truncation. Empty string is distinct from absent field. A header label stays an exported row.
 9. For every generated workbook, reload the XLSX, compare every cell value, type, dimensions, formula and hyperlink absence to the approved data. **If any mismatch, block the download.**
 10. All errors should be safe, localized and actionable, identifying row/column when possible without logging the user's private data.
+11. **Repairs are explicit diffs only (Phase 6).** Parsed `originalRecords` stay immutable for the whole job; a value changes only when the user confirms a previewed diff `{ row, col, original, proposed, source }` (per suggestion or bulk). Rejecting a suggestion changes nothing; undo/redo reorder the bounded in-memory history; the effective table is original + approved diffs; stale or out-of-cap edits fail closed (`EDIT_CONFLICT`/`EDIT_INVALID`), never silently forced. Export and `verify.ts` compare against the effective table; edits introducing formula-like text still export as literal text. Suggestions never invent data and are classified safe (mechanical, lossless) vs ambiguous (user judgment) per `04` §5a. Changing encoding/delimiter/header re-parses from raw bytes and warns before discarding diffs; cancel/reset discards diffs.
 
 ## 5. Security and privacy constraints
 

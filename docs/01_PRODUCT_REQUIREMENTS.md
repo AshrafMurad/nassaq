@@ -8,7 +8,7 @@
 
 Nassaq helps an Arabic-speaking person turn a CSV into an Excel workbook **without accidentally converting identifiers, breaking Arabic characters, or executing spreadsheet formulas**. Existing spreadsheet import workflows may guess encodings, delimiters and types; a wrong guess can be subtle and irreversible *after* export. Nassaq makes those decisions visible and treats uncertainty as a reason to ask—not to silently alter data.
 
-This is **not** a general-purpose spreadsheet editor, cloud importer, or repair service for already-damaged CSVs. The original source file remains on the user's device. All content processing is local in their browser.
+This is **not** a general-purpose spreadsheet editor, cloud importer, or repair service for already-damaged CSVs. The original source file remains on the user's device. All content processing is local in their browser. Nassaq does offer **explicit, user-confirmed cell repair** (Phase 6): suggested/manual corrections are always previewed as diffs and applied only after user confirmation — never automatically. Nassaq cannot reconstruct information not present in the file's bytes.
 
 **Primary users and jobs:**
 
@@ -37,7 +37,7 @@ This is **not** a general-purpose spreadsheet editor, cloud importer, or repair 
 | PR-03 | Entire import, parsing, XLSX generation, read-back and download local to browser | Network interception confirms no file-content requests |
 | PR-04 | No auth, backend, DB, tracking, remote fonts, AI or analytics | Dependency and network review |
 | PR-05 | Static build deployable to a CDN/static host | `npm run build` yields `dist/` |
-| PR-06 | No silent trimming, normalization, type coercion, row deletion or automatic repair | Golden CSV/XLSX fixture comparisons |
+| PR-06 | No silent trimming, normalization, type coercion, row deletion or automatic repair. Explicit, user-confirmed cell repairs (Phase 6) are permitted: every value change is an explicit diff previewed to the user and applied only on confirmation; original values remain available for comparison until reset | Golden CSV/XLSX fixture comparisons; repair E2E proves no change without confirmation |
 | PR-07 | Formula-like text exported literally, never as formulas | Inspect loaded cell type and formula properties |
 | PR-08 | Desktop recent Chromium, Firefox and Safari; mobile is usable but not a heavy-file target | Cross-browser E2E and smoke |
 | PR-09 | **MVP caps:** 2 MiB raw input, 10,000 data rows, 50 columns, 100,000 non-header cells; Excel cell ≤32,767 UTF-16 code units | Boundary fixtures and informative refusal |
@@ -75,6 +75,7 @@ No “uploading” progress, success or security claim should imply a server tra
 | FR-10 / P0 | Privacy and safety controls | No file transmission, no formulas, no stored content or telemetry; input limits and bounded preview |
 | FR-11 / P0 | Recover from review mistakes | User can change encoding/delimiter/type and re-run, without retaining stale results |
 | FR-12 / P1 | Show keyboard/a11y feedback | Focus on first error, accessible labels/status, keyboard selector navigation |
+| FR-13 / P0 | Explicit cell repair workflow (Phase 6): detect → suggest → preview → confirm → apply | Every suggested or manual edit is shown as an original-vs-proposed diff with row/column references; nothing changes without an explicit Confirm; per-suggestion Reject is available; bulk apply confirms all staged diffs at once; Undo/Redo revert confirmed edits; export writes original + approved diffs and passes full XLSX read-back verification; changing encoding/delimiter/header re-parses from raw bytes and warns before discarding edits; Cancel/Reset discards all edits; edits introducing formula-like text still export as literal text; repaired cells respect the 32,767 UTF-16 cap |
 
 P0 = required for first public MVP. P1 = release-quality polish and should be implemented where time permits without violating P0. Security-critical a11y, labeling and error usability remain non-negotiable.
 
@@ -88,7 +89,9 @@ P0 = required for first public MVP. P1 = release-quality polish and should be im
 
 **Not MVP:** XLS/XLSX inputs, CSV editing, data cleaning or deduplication, guessed phone-number columns, automatic correction of mojibake, Arabic comma delimiter, drag-and-drop of folders, multiple sheets, server import, database column mapping, cloud storage, account/sync, usage analytics, AI or mobile apps. Users **do not** map columns to a destination database; they select safe Excel **cell types**.
 
-**Post-MVP priorities (separate decisions):** improve handling of larger data through stress profiling and efficient export; reusable user-confirmed column presets (local only, no data saved); more encodings/delimiters; explicit per-cell correction (with audit log); optional human-readable processing summary; automated accessibility audits.
+**Post-MVP priorities (separate decisions):** improve handling of larger data through stress profiling and efficient export; reusable user-confirmed column presets (local only, no data saved); more encodings/delimiters; optional human-readable processing summary; automated accessibility audits.
+
+**Scope promotion (Phase 6, 2026-11-01, owner-authorized):** "explicit per-cell correction (with audit log)" moved from post-MVP into MVP scope as FR-13. The "audit log" is the in-memory, session-scoped diff list (undo/redo history) — it is never persisted (PR-10/PR-04 hold). Repair remains **never automatic**: PR-06 governs every change. CSV editing/data cleaning as a *general-purpose editor* remains out of scope; only cell-value diffs on the parsed table are offered.
 
 ## 6. User stories
 
