@@ -209,6 +209,61 @@ describe('workerProtocol: WorkerClient', () => {
     expect(client.exportXlsx({ 0: 'text' }, true)).toBe(false);
   });
 
+  it('getSuggestions posts a bounded GET_SUGGESTIONS request and dispatches SUGGESTIONS_READY', () => {
+    const client = new WorkerClient();
+    // No active job → refused
+    expect(client.getSuggestions(0, 10)).toBe(false);
+
+    const pages: Array<{ items: unknown[]; total: number; offset: number }> = [];
+    const cb = makeCallbacks();
+    client.parse(
+      makeFile(16),
+      { encoding: 'utf-8', firstRowIsHeader: true },
+      {
+        ...cb,
+        onSuggestionsReady: (msg) => {
+          pages.push({ items: msg.items, total: msg.total, offset: msg.offset });
+        },
+      },
+    );
+    const worker = MockWorker.instances[0];
+
+    expect(client.getSuggestions(10, 10)).toBe(true);
+    const sent = worker?.posted.at(-1)?.msg as {
+      type: string;
+      jobId: string;
+      offset: number;
+      limit: number;
+    };
+    expect(sent.type).toBe('GET_SUGGESTIONS');
+    expect(sent.jobId).toBe(client.currentJobId);
+    expect(sent.offset).toBe(10);
+    expect(sent.limit).toBe(10);
+
+    worker?.emit({
+      type: 'SUGGESTIONS_READY',
+      jobId: client.currentJobId as string,
+      items: [],
+      total: 0,
+      offset: 10,
+      limit: 10,
+    });
+    expect(pages).toHaveLength(1);
+    expect(pages[0]?.offset).toBe(10);
+
+    // Stale SUGGESTIONS_READY from a previous job is discarded
+    const previousJobId = 'stale-job';
+    worker?.emit({
+      type: 'SUGGESTIONS_READY',
+      jobId: previousJobId,
+      items: [],
+      total: 0,
+      offset: 0,
+      limit: 10,
+    });
+    expect(pages).toHaveLength(1);
+  });
+
   it('passes worker ERROR messages through without adding file content', () => {
     const client = new WorkerClient();
     const cb = makeCallbacks();

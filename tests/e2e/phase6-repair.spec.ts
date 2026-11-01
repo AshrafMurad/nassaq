@@ -36,6 +36,12 @@ async function waitForReviewReady(page: Page): Promise<void> {
   await expect(page.getByTestId('data-preview-table-container')).toBeVisible({
     timeout: 10_000,
   });
+  const toggle = page.getByTestId('repair-toggle');
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') {
+    await toggle.click();
+  }
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTestId('repair-history')).toBeVisible();
 }
 
 async function downloadAndLoad(
@@ -189,6 +195,144 @@ test.describe('Phase 6 — repair workflow', () => {
     expect(cell?.value).toBe('=1+1');
     expect(cell?.type).toBe(ExcelJS.ValueType.String);
     expect(cell?.formula).toBeUndefined();
+  });
+
+  test('confirmed repairs invalidate an older verified workbook before download', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await setInputFile(page, REPAIR_CSV);
+    await waitForReviewReady(page);
+
+    // First verify the original table.
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('validation-success')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('download-excel-button')).toBeVisible();
+
+    // Confirming a later repair must immediately remove those stale bytes.
+    await page.getByTestId(`repair-stage-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await page.getByTestId('repair-confirm-staged').click();
+    await expect(page.getByTestId('cell-edited-1-1')).toBeVisible();
+    await expect(page.getByTestId('download-excel-button')).not.toBeVisible();
+    await expect(page.getByTestId('create-excel-button')).toBeVisible();
+
+    // Regeneration now verifies and downloads the repaired effective table.
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('validation-success')).toBeVisible({ timeout: 10_000 });
+    const wb = await downloadAndLoad(page);
+    expect(wb.getWorksheet('Data')?.getCell(2, 2).value).toBe('00073');
+  });
+
+  test('manual confirmation applies only that cell and leaves staged suggestions pending', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await setInputFile(page, REPAIR_CSV);
+    await waitForReviewReady(page);
+
+    // Stage Code, but do not confirm that staging area.
+    await page.getByTestId(`repair-stage-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await expect(page.getByTestId('cell-staged-1-1')).toBeVisible();
+
+    // Confirm a separate manual edit to Note.
+    await page.getByTestId('cell-edit-1-2').click();
+    await page.getByTestId('cell-input-1-2').fill('manual note');
+    await page.getByTestId('cell-confirm-1-2').click();
+    await expect(page.getByTestId('cell-edited-1-2')).toBeVisible();
+
+    // Code is still staged, never silently applied by the per-cell confirm.
+    await expect(page.getByTestId('cell-staged-1-1')).toBeVisible();
+    await expect(page.getByTestId('cell-edited-1-1')).not.toBeVisible();
+    await expect(page.getByTestId('repair-staged-preview')).toBeVisible();
+
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('validation-success')).toBeVisible({ timeout: 10_000 });
+    const wb = await downloadAndLoad(page);
+    const sheet = wb.getWorksheet('Data');
+    expect(sheet?.getCell(2, 2).value).toBe('  00073  ');
+    expect(sheet?.getCell(2, 3).value).toBe('manual note');
+  });
+
+  test('unstage toggles correctly and rejecting a staged suggestion removes its pending diff', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await setInputFile(page, REPAIR_CSV);
+    await waitForReviewReady(page);
+
+    await page.getByTestId(`repair-stage-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await expect(page.getByTestId('repair-staged-preview')).toBeVisible();
+    await page.getByTestId(`repair-unstage-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await expect(page.getByTestId('repair-staged-preview')).not.toBeVisible();
+
+    await page.getByTestId(`repair-stage-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await page.getByTestId(`repair-reject-1:1:TRIM_SURROUNDING_WHITESPACE`).click();
+    await expect(page.getByTestId('repair-staged-preview')).not.toBeVisible();
+    await expect(page.getByTestId(TRIM_CODE)).not.toBeVisible();
+    await expect(page.getByTestId('repair-history-count')).toContainText('0');
+  });
+
+  test('multiline cell editor preserves line breaks and restores focus after confirmation', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await setInputFile(page, 'Name,Note\nA,"line1\nline2"\nB,plain');
+    await waitForReviewReady(page);
+
+    const editButton = page.getByTestId('cell-edit-1-1');
+    await editButton.click();
+    const textarea = page.getByTestId('cell-input-1-1');
+    await expect(textarea).toHaveValue('line1\nline2');
+    await textarea.fill('line1\nline2\nline3');
+    await page.getByTestId('cell-confirm-1-1').click();
+    await expect(editButton).toBeFocused();
+    await expect(page.getByTestId('cell-edited-1-1')).toBeVisible();
+
+    await page.getByTestId('create-excel-button').click();
+    await expect(page.getByTestId('validation-success')).toBeVisible({ timeout: 10_000 });
+    const wb = await downloadAndLoad(page);
+    expect(wb.getWorksheet('Data')?.getCell(2, 2).value).toBe(
+      'line1\nline2\nline3',
+    );
+  });
+
+  test('repair list is collapsed after the data preview and paginates beyond ten suggestions', async ({
+    page,
+  }) => {
+    const rows = ['A,B,C'];
+    for (let i = 1; i <= 5; i++) {
+      rows.push(`  a${i}  ,  b${i}  ,  c${i}  `);
+    }
+
+    await page.goto('/');
+    await setInputFile(page, rows.join('\n'), 'many-repairs.csv');
+    await expect(page.getByTestId('data-preview-table-container')).toBeVisible({
+      timeout: 10_000,
+    });
+
+    const preview = page.getByTestId('data-preview-table-container');
+    const panel = page.getByTestId('repair-panel');
+    const toggle = page.getByTestId('repair-toggle');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    const previewBox = await preview.boundingBox();
+    const panelBox = await panel.boundingBox();
+    expect(previewBox?.y ?? Infinity).toBeLessThan(panelBox?.y ?? -Infinity);
+
+    await toggle.click();
+    await expect(page.getByTestId('repair-page-status')).toContainText('1');
+    await expect(page.getByTestId('repair-page-next')).toBeEnabled();
+    await page.getByTestId('repair-page-next').click();
+    await expect(page.getByTestId('repair-page-status')).toContainText('2');
+    await expect(
+      page.getByTestId('repair-suggestion-4:1:TRIM_SURROUNDING_WHITESPACE'),
+    ).toBeVisible();
+    await expect(page.getByTestId('repair-page-prev')).toBeEnabled();
+
+    // Desktop review workspace is materially wider and keeps sticky headers.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const tableBox = await page.getByTestId('preview-scroll-area').boundingBox();
+    expect(tableBox?.width ?? 0).toBeGreaterThan(900);
+    await expect(page.getByTestId('column-header-0')).toHaveCSS('position', 'sticky');
   });
 
   test('changing the delimiter with confirmed edits warns before discarding them', async ({

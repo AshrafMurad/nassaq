@@ -38,7 +38,10 @@ export function App() {
         </p>
       </section>
 
-      <section aria-label={t('choose')} className="mx-auto mt-8 max-w-xl">
+      <section
+        aria-label={t('choose')}
+        className={`mx-auto mt-8 ${file ? 'max-w-6xl' : 'max-w-xl'}`}
+      >
         {file ? (
           <ImportDetails
             file={file}

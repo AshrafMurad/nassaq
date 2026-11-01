@@ -13,8 +13,10 @@ interface DataPreviewTableProps {
   disabled?: boolean;
   /** Phase 6: when provided, preview cells expose explicit per-cell editing. */
   onConfirmEdit?: (edit: CellEdit) => void;
-  /** Phase 6: record-coordinate keys (`row:col`) with staged/approved edits. */
-  editedCells?: ReadonlySet<string>;
+  /** Phase 6: keys (`row:col`) with CONFIRMED edits (green badge). */
+  approvedCells?: ReadonlySet<string>;
+  /** Phase 6: keys (`row:col`) with STAGED pending edits (amber badge). */
+  stagedCells?: ReadonlySet<string>;
 }
 
 export function columnIndexToLetter(index: number): string {
@@ -33,7 +35,8 @@ export function DataPreviewTable({
   onColumnTypeChange,
   disabled = false,
   onConfirmEdit,
-  editedCells,
+  approvedCells,
+  stagedCells,
 }: DataPreviewTableProps) {
   const { t } = useTranslation();
 
@@ -69,9 +72,9 @@ export function DataPreviewTable({
         role="region"
         aria-label={t('preview')}
         data-testid="preview-scroll-area"
-        className="neo-control neo-focus max-h-96 overflow-auto rounded-sm border-2 border-black bg-white"
+        className="neo-control neo-focus max-h-96 overflow-auto rounded-sm border-2 border-black bg-white lg:max-h-[600px]"
       >
-        <table className="w-full border-collapse text-left text-xs">
+        <table className="w-full border-separate border-spacing-0 text-xs">
           <caption className="sr-only">
             {t('previewCaption', {
               shown: summary.previewRows.length,
@@ -79,11 +82,11 @@ export function DataPreviewTable({
             })}
           </caption>
           <thead>
-            <tr className="border-b-2 border-black bg-sage">
-              {/* Row number column header */}
+            <tr className="bg-sage">
+              {/* Row number column header (sticky in both scroll axes) */}
               <th
                 scope="col"
-                className="w-12 border-r border-black p-2 text-center font-bold text-charcoal"
+                className="sticky start-0 top-0 z-30 w-12 border-b-2 border-r border-black bg-sage p-2 text-center font-bold text-charcoal"
               >
                 #
               </th>
@@ -111,7 +114,7 @@ export function DataPreviewTable({
                     key={c}
                     scope="col"
                     data-testid={`column-header-${c}`}
-                    className="min-w-44 border-r border-black p-2.5 align-top font-bold text-charcoal last:border-r-0"
+                    className="sticky top-0 z-20 min-w-44 border-b-2 border-r border-black bg-sage p-2.5 align-top font-bold text-charcoal last:border-r-0"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="rounded bg-yellow px-1.5 py-0.5 font-extrabold text-black">
@@ -150,11 +153,11 @@ export function DataPreviewTable({
                 <tr
                   key={rIdx}
                   data-testid={`preview-row-${rIdx}`}
-                  className="border-b border-black/20 hover:bg-yellow/20"
+                  className="hover:bg-yellow/20"
                 >
                   <th
                     scope="row"
-                    className="border-r border-black bg-sage/40 p-2 text-center font-mono text-muted-foreground select-none"
+                    className="sticky start-0 z-10 row-headcell border-b border-r border-black p-2 text-center font-mono text-muted-foreground select-none"
                   >
                     {rowNum}
                   </th>
@@ -165,14 +168,15 @@ export function DataPreviewTable({
                     const hasSurroundingSpace =
                       cellVal.startsWith(' ') || cellVal.endsWith(' ');
                     const risks = scanCellRisks(cellVal);
-                    const isEdited =
-                      editedCells?.has(`${recordRow}:${cIdx}`) ?? false;
+                    const cellKey = `${recordRow}:${cIdx}`;
+                    const isApproved = approvedCells?.has(cellKey) ?? false;
+                    const isStagedCell = stagedCells?.has(cellKey) ?? false;
 
                     return (
                       <td
                         key={cIdx}
                         data-testid={`cell-${rIdx}-${cIdx}`}
-                        className="max-w-xs border-r border-black/20 p-2 align-top text-charcoal last:border-r-0"
+                        className="max-w-xs border-b border-r border-black/20 p-2 align-top text-charcoal last:border-r-0"
                       >
                         <div className="flex items-start justify-between gap-1">
                           <div className="min-w-0 flex-1">
@@ -181,7 +185,8 @@ export function DataPreviewTable({
                                 row={recordRow}
                                 col={cIdx}
                                 value={cellVal}
-                                isEdited={isEdited}
+                                isEdited={isApproved}
+                                isStaged={isStagedCell}
                                 onConfirmEdit={onConfirmEdit}
                                 disabled={disabled}
                               />

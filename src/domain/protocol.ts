@@ -7,7 +7,7 @@
 import type { RiskCategory } from './risks';
 import type { ExportManifest } from './export-manifest';
 import type { CellEdit } from './repairs';
-import type { SuggestionSet } from './suggestions';
+import type { SuggestionItem, SuggestionSet } from './suggestions';
 
 // ---------------------------------------------------------------------------
 // Supported encoding identifiers
@@ -68,11 +68,27 @@ export interface WorkerRequestApplyEdits {
   edits: CellEdit[];
 }
 
+/**
+ * Phase 6 follow-up: request one bounded page of suggestions over the
+ * current effective table. The READY/EDITS_APPLIED summary stays bounded
+ * to its first 50 items (docs/04 §5a); this message serves arbitrary
+ * further pages without ever transferring the whole list at once.
+ */
+export interface WorkerRequestGetSuggestions {
+  type: 'GET_SUGGESTIONS';
+  jobId: string;
+  /** 0-based index into the full suggestion list. */
+  offset: number;
+  /** Page size (bounded by the caller). */
+  limit: number;
+}
+
 export type WorkerRequest =
   | WorkerRequestParse
   | WorkerRequestCancel
   | WorkerRequestExport
-  | WorkerRequestApplyEdits;
+  | WorkerRequestApplyEdits
+  | WorkerRequestGetSuggestions;
 
 // ---------------------------------------------------------------------------
 // Messages sent FROM the worker TO the main thread
@@ -204,6 +220,22 @@ export interface WorkerMsgEditsApplied {
   summary: ParseSummary;
 }
 
+/**
+ * Phase 6 follow-up: one bounded page of suggestions over the effective
+ * table, plus the full total so the UI can paginate without holding the
+ * complete list in memory.
+ */
+export interface WorkerMsgSuggestionsReady {
+  type: 'SUGGESTIONS_READY';
+  jobId: string;
+  items: SuggestionItem[];
+  /** Total suggestions across the whole effective table. */
+  total: number;
+  /** Echoed request window. */
+  offset: number;
+  limit: number;
+}
+
 /** Stable error codes for the import pipeline. */
 export type ImportErrorCode =
   | 'DECODE_FAILED'
@@ -237,4 +269,5 @@ export type WorkerMessage =
   | WorkerMsgReady
   | WorkerMsgExportReady
   | WorkerMsgEditsApplied
+  | WorkerMsgSuggestionsReady
   | WorkerMsgError;

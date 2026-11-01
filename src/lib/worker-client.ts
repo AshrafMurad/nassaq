@@ -15,6 +15,7 @@ import type {
   WorkerMsgReady,
   WorkerMsgExportReady,
   WorkerMsgEditsApplied,
+  WorkerMsgSuggestionsReady,
   WorkerMsgError,
   SupportedEncoding,
   DelimiterChar,
@@ -29,6 +30,7 @@ export interface WorkerCallbacks {
   onReady: (msg: WorkerMsgReady) => void;
   onExportReady?: (msg: WorkerMsgExportReady) => void;
   onEditsApplied?: (msg: WorkerMsgEditsApplied) => void;
+  onSuggestionsReady?: (msg: WorkerMsgSuggestionsReady) => void;
   onError: (msg: WorkerMsgError) => void;
 }
 
@@ -111,6 +113,9 @@ export class WorkerClient {
           case 'EDITS_APPLIED':
             callbacks.onEditsApplied?.(msg);
             break;
+          case 'SUGGESTIONS_READY':
+            callbacks.onSuggestionsReady?.(msg);
+            break;
           case 'ERROR':
             callbacks.onError(msg);
             break;
@@ -188,6 +193,25 @@ export class WorkerClient {
       type: 'APPLY_EDITS',
       jobId: this.activeJobId,
       edits,
+    });
+    return true;
+  }
+
+  /**
+   * Phase 6 follow-up: request one bounded page of suggestions over the
+   * current effective table. Answers via onSuggestionsReady (stale jobId
+   * messages are discarded by the standard dispatch guard).
+   */
+  getSuggestions(offset: number, limit: number): boolean {
+    if (!this.worker || !this.activeJobId) {
+      return false;
+    }
+
+    this.worker.postMessage({
+      type: 'GET_SUGGESTIONS',
+      jobId: this.activeJobId,
+      offset,
+      limit,
     });
     return true;
   }

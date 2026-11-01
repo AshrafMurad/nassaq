@@ -92,16 +92,49 @@ export function confirmStaged(state: RepairState): RepairState {
   };
 }
 
+/**
+ * Confirms ONE manually typed edit as its own undo/redo transaction,
+ * leaving unrelated staged suggestions pending (Phase 6 follow-up fix:
+ * a per-cell confirm must never bulk-apply the staging area).
+ * Refuses (fail-closed) when the bounded history is full.
+ */
+export function confirmSingleEdit(state: RepairState, edit: CellEdit): RepairState {
+  if (isHistoryFull(state.history)) return state;
+  return {
+    ...state,
+    history: pushTransaction(state.history, [edit]),
+  };
+}
+
 export function historyFull(state: RepairState): boolean {
   return isHistoryFull(state.history);
 }
 
-/** Explicitly rejects a suggestion; the effective table never changes. */
+/**
+ * Explicitly rejects a suggestion; the effective table never changes.
+ * If that suggestion was staged for review, the staged diff is withdrawn
+ * too (Phase 6 follow-up fix: rejecting must not leave a pending edit
+ * behind in the confirmation list). Manually staged edits at the same cell
+ * are left untouched.
+ */
 export function rejectSuggestion(state: RepairState, id: string): RepairState {
-  if (state.rejected.has(id)) return state;
+  const [rowStr, colStr] = id.split(':');
+  const key = `${rowStr}:${colStr}`;
+  const stagedEdit = state.staged[key];
+  const withdrawStaged =
+    stagedEdit !== undefined && stagedEdit.source === 'suggestion';
+
   const rejected = new Set(state.rejected);
   rejected.add(id);
-  return { ...state, rejected };
+
+  if (!withdrawStaged) {
+    if (state.rejected.has(id)) return state;
+    return { ...state, rejected };
+  }
+
+  const staged = { ...state.staged };
+  delete staged[key];
+  return { ...state, staged, rejected };
 }
 
 export function undo(state: RepairState): RepairState {

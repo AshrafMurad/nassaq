@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCheck, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { columnIndexToLetter } from './DataPreviewTable';
+import { DiffValueText } from './DiffValueText';
 import type { CellEdit } from '@/domain/repairs';
 
 interface RepairStagedPreviewProps {
@@ -57,13 +58,13 @@ export function RepairStagedPreview({
                 col: columnIndexToLetter(edit.col),
               })}
             </span>
-            <bdi dir="auto" className="whitespace-pre-wrap break-all text-muted-foreground line-through">
-              {edit.original === '' ? t('emptyCellLabel') : edit.original}
-            </bdi>
+            <span className="text-muted-foreground line-through">
+              <DiffValueText value={edit.original} />
+            </span>
             <span aria-hidden="true">→</span>
-            <bdi dir="auto" className="whitespace-pre-wrap break-all font-bold text-charcoal">
-              {edit.proposed === '' ? t('emptyCellLabel') : edit.proposed}
-            </bdi>
+            <span className="font-bold text-charcoal">
+              <DiffValueText value={edit.proposed} />
+            </span>
             <button
               type="button"
               onClick={() => onUnstage(edit)}

@@ -213,7 +213,16 @@ export const en: Translation = {
   repairEditTooLong:
     'The proposed value exceeds the maximum length (32,767 characters).',
   repairEditedBadge: 'edited',
+  repairStagedBadge: 'staged',
   repairCellRef: 'Row {{row}}, column {{col}}',
+  repairOpenList: 'Review suggestions ({{count}})',
+  repairHideList: 'Hide suggestions',
+  repairLoadingSuggestions: 'Loading suggestions…',
+  repairPaginationLabel: 'Suggestion pages',
+  repairPrevPage: 'Previous',
+  repairNextPage: 'Next',
+  repairPageStatus: 'Page {{page}} of {{count}}',
+  repairEditConfirmHint: 'Ctrl+Enter to confirm, Esc to cancel. Line breaks are preserved exactly.',
   repairDiscardWarningTitle: 'Re-parsing will discard confirmed edits',
   repairDiscardWarningBody:
     '{{count}} confirmed edit(s) will be discarded when the file is re-read with the new settings.',

@@ -23,6 +23,10 @@
  *   2. Re-runs risk scan, suggestions and numeric eligibility over it
  *   3. Answers EDITS_APPLIED with a fresh ParseSummary (≤20 preview rows);
  *      the full table never crosses to the UI
+ *
+ * Receives a GET_SUGGESTIONS request (Phase 6 follow-up):
+ *   Answers SUGGESTIONS_READY with one bounded page of the full suggestion
+ *   set over the current effective table (summary stays 50-bounded).
  */
 
 import type {
@@ -46,6 +50,7 @@ import {
 } from '@/domain/csv';
 import { revalidateNumericExport } from '@/domain/numeric-policy';
 import { applyEdits, type CellEdit } from '@/domain/repairs';
+import { generateSuggestions } from '@/domain/suggestions';
 import { generateAndVerifyXlsx } from './xlsx-adapter';
 
 interface ActiveJob {
@@ -55,6 +60,8 @@ interface ActiveJob {
   /** Approved cell diffs in confirmation order (empty after fresh parse). */
   approvedEdits: CellEdit[];
   summary: ParseSummary;
+  /** Effective table (original + approved diffs) matching the summary. */
+  effectiveRecords: string[][];
 }
 
 let activeJob: ActiveJob | null = null;
@@ -94,8 +101,45 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
   if (req.type === 'APPLY_EDITS') {
     handleApplyEdits(req.jobId, req.edits);
+    return;
+  }
+
+  if (req.type === 'GET_SUGGESTIONS') {
+    handleGetSuggestions(req.jobId, req.offset, req.limit);
   }
 };
+
+/**
+ * Phase 6 follow-up: serves one bounded page of suggestions over the
+ * current effective table. The full list stays worker-side; only the
+ * requested window crosses to the UI.
+ */
+function handleGetSuggestions(jobId: string, offset: number, limit: number): void {
+  if (!activeJob || activeJob.jobId !== jobId) {
+    return;
+  }
+
+  const safeOffset = Number.isInteger(offset) && offset > 0 ? offset : 0;
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 200) : 0;
+  // Generate only through the requested page boundary. `total` still scans
+  // the complete effective table, while earlier page objects are temporary
+  // and discarded after this response instead of retaining the whole list.
+  const pageSet = generateSuggestions(
+    activeJob.effectiveRecords,
+    activeJob.summary.firstRowIsHeader,
+    safeOffset + safeLimit,
+  );
+  const items = pageSet.items.slice(safeOffset, safeOffset + safeLimit);
+
+  post({
+    type: 'SUGGESTIONS_READY',
+    jobId,
+    items,
+    total: pageSet.total,
+    offset: safeOffset,
+    limit: safeLimit,
+  });
+}
 
 /**
  * Phase 6: replaces the approved diff list, rebuilds the effective table,
@@ -143,7 +187,12 @@ function handleApplyEdits(jobId: string, edits: CellEdit[]): void {
     appliedEditCount: edits.length,
   };
 
-  activeJob = { ...activeJob, approvedEdits: [...edits], summary };
+  activeJob = {
+    ...activeJob,
+    approvedEdits: [...edits],
+    summary,
+    effectiveRecords: applied.effective,
+  };
 
   const msg: WorkerMessage = {
     type: 'EDITS_APPLIED',
@@ -287,6 +336,7 @@ function handleParse(
     records,
     approvedEdits: [],
     summary: result.summary,
+    effectiveRecords: records,
   };
 
   // ── Phase 7: Ready ────────────────────────────────────────────────────
