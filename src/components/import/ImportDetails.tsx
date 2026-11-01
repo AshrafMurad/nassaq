@@ -1,5 +1,5 @@
 /**
- * ImportDetails — Phase 4
+ * ImportDetails — Phase 4 + Phase 6
  *
  * Shown after a file is selected. Manages the worker parse & export lifecycle:
  *  - Automatically starts a parse job when mounted with a new file.
@@ -10,9 +10,16 @@
  *     - Displays EncodingSelector & DelimiterSelector for manual tuning (re-parses from raw bytes)
  *     - Displays HeaderModeToggle
  *     - Displays RiskSummary (breakdown of leading zeros, long IDs, date-shapes, formulas, etc.)
+ *     - Displays the Phase 6 repair panel: bounded suggestion list, staged diff
+ *       preview with explicit bulk confirmation, per-cell manual editing with
+ *       re-validation feedback, and bounded Undo/Redo (nothing changes without
+ *       an explicit user confirmation; docs/04 §1a)
  *     - Displays DataPreviewTable (up to 20 rows, escaped safe text, cell risk badges, ColumnTypeSelector per column)
  *     - Displays ParseResultSummary (rows, columns, encoding, delimiter, uneven rows)
- *     - Displays DownloadAction (triggers safe XLSX generation, displays read-back verification result, enables download)
+ *     - Displays DownloadAction (triggers safe XLSX generation over original +
+ *       approved diffs, displays read-back verification result, enables download)
+ *  - Changing encoding/delimiter/header with confirmed diffs warns before
+ *    discarding them (re-parse from raw bytes).
  *  - Shows ParseError when the worker returns an error.
  */
 
@@ -32,15 +39,38 @@ import { DelimiterSelector } from './DelimiterSelector';
 import { HeaderModeToggle } from './HeaderModeToggle';
 import { RiskSummary } from './RiskSummary';
 import { DataPreviewTable } from './DataPreviewTable';
+import { RepairStagedPreview } from './RepairStagedPreview';
+import { RepairHistory } from './RepairHistory';
 import { DownloadAction } from './DownloadAction';
 import { triggerFileDownload, revokeDownloadUrl } from '@/lib/download';
 import { updateColumnType, type ColumnType } from '@/app/import-state';
+import {
+  createRepairState,
+  stageSuggestion,
+  unstageCell,
+  clearStaged,
+  confirmStaged,
+  confirmSingleEdit,
+  rejectSuggestion,
+  undo as undoRepairs,
+  redo as redoRepairs,
+  approvedEdits,
+  confirmedCount,
+  stagedCount,
+  historyFull,
+  clearRepairs,
+  type RepairState,
+} from '@/app/repair-state';
+import type { CellEdit } from '@/domain/repairs';
+import type { SuggestionItem } from '@/domain/suggestions';
+import { RepairSuggestions, SUGGESTION_PAGE_SIZE } from './RepairSuggestions';
 import type { Ref } from 'react';
 import type {
   ParseSummary,
   WorkerMsgError,
   WorkerMsgDelimiterReview,
   WorkerMsgEncodingReview,
+  WorkerMsgSuggestionsReady,
   SupportedEncoding,
   DelimiterChar,
   ProgressPhase,
@@ -86,6 +116,41 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
   const [firstRowIsHeader, setFirstRowIsHeader] = useState(true);
   const [columnTypes, setColumnTypes] = useState<Record<number, ColumnType>>({});
 
+  // ── Phase 6: repair workflow state ────────────────────────────────────
+  const [repairState, setRepairState] = useState<RepairState>(createRepairState);
+  /** Ref mirror so worker callbacks always read the current repair state. */
+  const repairStateRef = useRef<RepairState>(repairState);
+  useEffect(() => {
+    repairStateRef.current = repairState;
+  }, [repairState]);
+  /** True while an APPLY_EDITS sync is in flight (blocks further mutations). */
+  const [editsPending, setEditsPending] = useState(false);
+  /** Last RepairState whose diff list the worker accepted (error rollback). */
+  const lastSyncedRepairRef = useRef<RepairState>(createRepairState());
+  /** Localized polite announcement for the repair live region. */
+  const [repairLive, setRepairLive] = useState('');
+  /** Localized repair error (EDIT_CONFLICT / EDIT_INVALID). */
+  const [repairError, setRepairError] = useState<string | null>(null);
+  /** Pending re-parse action awaiting explicit discard confirmation. */
+  const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
+
+  // ── Phase 6 follow-up: collapsed panel + paged suggestions ────────────
+  /** Repair panel collapsed by default; the journey leads with the data. */
+  const [repairOpen, setRepairOpen] = useState(false);
+  /** 0-based suggestion page into the worker-held full list. */
+  const [suggestionPage, setSuggestionPage] = useState(0);
+  /** Suggestions for the current page (null until first page arrives). */
+  const [pagedSuggestions, setPagedSuggestions] = useState<SuggestionItem[] | null>(null);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  /**
+   * Generation counter for the effective table. Bumped on every worker
+   * sync; EXPORT results are discarded when the table changed after the
+   * export started, so a verified buffer can never outlive its dataset.
+   */
+  const editGenerationRef = useRef(0);
+  /** Generation captured when the in-flight export started. */
+  const exportGenerationRef = useRef(0);
+
   const startParse = useCallback(
     (
       enc: SupportedEncoding,
@@ -127,14 +192,55 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
             setParseState({ status: 'ready', summary: msg.summary });
           },
           onExportReady: (msg) => {
+            // Fail closed against stale exports: if the effective table
+            // changed after this export started, the verified buffer no
+            // longer describes the user's data — discard it (docs/04 §1a-5).
+            if (exportGenerationRef.current !== editGenerationRef.current) {
+              return;
+            }
             setExportState({
               status: 'verified',
               buffer: msg.buffer,
               manifest: msg.manifest,
             });
           },
+          onSuggestionsReady: (msg: WorkerMsgSuggestionsReady) => {
+            setPagedSuggestions(msg.items);
+            setSuggestionsLoading(false);
+          },
+          onEditsApplied: (msg) => {
+            setEditsPending(false);
+            setParseState({ status: 'ready', summary: msg.summary });
+            lastSyncedRepairRef.current = repairStateRef.current;
+            setRepairError(null);
+            setSuggestionPage(0);
+            setRepairLive(
+              t('repairAnnounceApplied', { count: msg.appliedCount }),
+            );
+          },
           onError: (msg) => {
+            if (msg.code === 'EDIT_CONFLICT' || msg.code === 'EDIT_INVALID') {
+              // Fail closed: roll the UI back to the last worker-confirmed
+              // repair state; no value was changed by the rejected batch.
+              setEditsPending(false);
+              setRepairState(lastSyncedRepairRef.current);
+              setRepairLive(
+                msg.code === 'EDIT_CONFLICT'
+                  ? t('errorEditConflict')
+                  : t('errorEditInvalid', { detail: msg.detail ?? '' }),
+              );
+              setRepairError(
+                msg.code === 'EDIT_CONFLICT'
+                  ? t('errorEditConflict')
+                  : t('errorEditInvalid', { detail: msg.detail ?? '' }),
+              );
+              return;
+            }
             if (msg.code === 'VERIFY_FAILED') {
+              // Stale export failure for an already-superseded table: ignore.
+              if (exportGenerationRef.current !== editGenerationRef.current) {
+                return;
+              }
               let failure: VerificationFailure = { reason: 'CORRUPT_XLSX' };
               if (msg.detail) {
                 const parts = msg.detail.split(':');
@@ -145,6 +251,9 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
               }
               setExportState({ status: 'failed', failure });
             } else if (msg.code === 'EXPORT_FAILED') {
+              if (exportGenerationRef.current !== editGenerationRef.current) {
+                return;
+              }
               setExportState({
                 status: 'failed',
                 failure: { reason: 'CORRUPT_XLSX' },
@@ -161,6 +270,13 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
 
   // Auto-start parse on mount
   useEffect(() => {
+    // A different file invalidates every diff (docs/04 §1a-7).
+    const fresh = clearRepairs();
+    setRepairState(fresh);
+    lastSyncedRepairRef.current = fresh;
+    setRepairError(null);
+    setRepairLive('');
+    setPendingDiscard(null);
     startParse(encoding, delimiter, firstRowIsHeader);
     return () => {
       revokeDownloadUrl(activeBlobUrlRef.current);
@@ -177,27 +293,168 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
     }
   }, [parseState]);
 
+  // ── Phase 6 follow-up: paged suggestion fetch ───────────────────────────
+  // Runs when the panel opens, the page changes, or the effective table
+  // changes (new summary identity after READY/EDITS_APPLIED).
+  const activeSummary =
+    parseState.status === 'ready' ? parseState.summary : null;
+  useEffect(() => {
+    if (!repairOpen || !activeSummary) return;
+    const client = clientRef.current;
+    if (!client) return;
+    setSuggestionsLoading(true);
+    const sent = client.getSuggestions(
+      suggestionPage * SUGGESTION_PAGE_SIZE,
+      SUGGESTION_PAGE_SIZE,
+    );
+    if (!sent) setSuggestionsLoading(false);
+  }, [repairOpen, activeSummary, suggestionPage]);
+
+  // ── Phase 6: repair sync ────────────────────────────────────────────────
+  /**
+   * Sends the COMPLETE approved diff list to the worker (APPLY_EDITS).
+   * Undo/redo reuse this path: the desired list is always sent in full, so
+   * the worker's effective table can never drift from the confirmed UI state.
+   *
+   * Also invalidates any verified workbook and bumps the edit generation:
+   * once the effective table changes, the previously verified bytes no
+   * longer describe the user's data and must never remain downloadable
+   * (Phase 6 follow-up fix for the stale-download defect).
+   */
+  const syncEdits = useCallback(
+    (state: RepairState) => {
+      editGenerationRef.current += 1;
+      revokeDownloadUrl(activeBlobUrlRef.current);
+      activeBlobUrlRef.current = null;
+      setExportState({ status: 'idle' });
+
+      const client = clientRef.current;
+      if (!client) return;
+      setEditsPending(true);
+      const sent = client.applyEdits(approvedEdits(state));
+      if (!sent) setEditsPending(false);
+    },
+    [],
+  );
+
+  const totalRepairCount = stagedCount(repairState) + confirmedCount(repairState);
+
+  /** Runs a re-parse-triggering change; warns first when diffs would be lost. */
+  const runWithDiscardGuard = (action: () => void) => {
+    if (totalRepairCount === 0) {
+      action();
+      return;
+    }
+    setPendingDiscard(() => action);
+  };
+
+  const confirmDiscard = () => {
+    const action = pendingDiscard;
+    const fresh = clearRepairs();
+    setRepairState(fresh);
+    lastSyncedRepairRef.current = fresh;
+    setRepairError(null);
+    setRepairLive('');
+    setPendingDiscard(null);
+    action?.();
+  };
+
+  const cancelDiscard = () => {
+    setPendingDiscard(null);
+  };
+
   const handleEncodingChange = (enc: SupportedEncoding) => {
-    setEncoding(enc);
-    setDelimiter(undefined);
-    setColumnTypes({});
-    startParse(enc, undefined, firstRowIsHeader);
+    runWithDiscardGuard(() => {
+      setEncoding(enc);
+      setDelimiter(undefined);
+      setColumnTypes({});
+      startParse(enc, undefined, firstRowIsHeader);
+    });
   };
 
   const handleDelimiterConfirm = (delim: DelimiterChar) => {
-    setDelimiter(delim);
-    setColumnTypes({});
-    startParse(encoding, delim, firstRowIsHeader);
+    runWithDiscardGuard(() => {
+      setDelimiter(delim);
+      setColumnTypes({});
+      startParse(encoding, delim, firstRowIsHeader);
+    });
   };
 
   const handleHeaderToggle = (header: boolean) => {
-    setFirstRowIsHeader(header);
-    setColumnTypes({});
-    startParse(encoding, delimiter, header);
+    runWithDiscardGuard(() => {
+      setFirstRowIsHeader(header);
+      setColumnTypes({});
+      startParse(encoding, delimiter, header);
+    });
   };
 
   const handleEncodingConfirm = () => {
     startParse(encoding, delimiter, firstRowIsHeader);
+  };
+
+  // ── Phase 6: repair actions ─────────────────────────────────────────────
+  // Fail-closed bounding (docs/04 §1a-7): once the history is full, further
+  // edits are refused until undo frees space or a re-parse resets.
+  const repairFull = historyFull(repairState);
+
+  const handleStageSuggestion = (s: SuggestionItem) => {
+    if (editsPending || repairFull) return;
+    setRepairState((prev) => stageSuggestion(prev, s));
+    setRepairError(null);
+  };
+
+  const handleUnstageCell = (row: number, col: number) => {
+    if (editsPending) return;
+    setRepairState((prev) => unstageCell(prev, row, col));
+  };
+
+  const handleRejectSuggestion = (id: string) => {
+    if (editsPending) return;
+    // Rejecting a suggestion changes nothing (docs/04 §1a-3).
+    setRepairState((prev) => rejectSuggestion(prev, id));
+  };
+
+  const handleClearStaged = () => {
+    if (editsPending) return;
+    setRepairState((prev) => clearStaged(prev));
+  };
+
+  const handleConfirmStaged = () => {
+    if (editsPending || repairFull) return;
+    const next = confirmStaged(repairState);
+    if (next === repairState) return;
+    setRepairState(next);
+    syncEdits(next);
+  };
+
+  const handleManualEdit = (edit: CellEdit) => {
+    if (editsPending || repairFull) return;
+    // A manually typed value is confirmed by its explicit per-cell Confirm
+    // and becomes ITS OWN undo/redo transaction — unrelated staged
+    // suggestions stay pending until their own explicit bulk confirmation
+    // (Phase 6 follow-up fix; docs/04 §1a-3).
+    const next = confirmSingleEdit(repairState, edit);
+    if (next === repairState) return;
+    setRepairState(next);
+    syncEdits(next);
+  };
+
+  const handleUndo = () => {
+    if (editsPending) return;
+    const next = undoRepairs(repairState);
+    if (next === repairState) return;
+    setRepairState(next);
+    syncEdits(next);
+    setRepairLive(t('repairAnnounceUndone'));
+  };
+
+  const handleRedo = () => {
+    if (editsPending) return;
+    const next = redoRepairs(repairState);
+    if (next === repairState) return;
+    setRepairState(next);
+    syncEdits(next);
+    setRepairLive(t('repairAnnounceRedone'));
   };
 
   const handleColumnTypeChange = (c: number, type: ColumnType) => {
@@ -211,6 +468,12 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
 
   const handleExport = () => {
     if (!clientRef.current || parseState.status !== 'ready') return;
+    // Block export while an edit sync is in flight so the workbook is always
+    // generated from a worker-confirmed effective table (docs/04 §1a-5).
+    if (editsPending) return;
+    // Bind this export to the current effective-table generation. The
+    // callback discards it if a later repair/undo/redo changes that table.
+    exportGenerationRef.current = editGenerationRef.current;
     setExportState({ status: 'exporting', phase: 'generating-xlsx' });
     clientRef.current.exportXlsx(columnTypes, firstRowIsHeader);
   };
@@ -249,6 +512,8 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
       case 'ZERO_COLUMNS': return t('errorZeroColumns');
       case 'EXPORT_FAILED': return t('errorExportFailed');
       case 'VERIFY_FAILED': return t('errorVerifyFailed', { detail: d });
+      case 'EDIT_CONFLICT': return t('errorEditConflict');
+      case 'EDIT_INVALID': return t('errorEditInvalid', { detail: d });
       default: return t('badEncode');
     }
   }
@@ -259,6 +524,17 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
 
   const hadBom =
     parseState.status === 'ready' ? parseState.summary.hadBom : false;
+
+  // ── Phase 6: derived repair view data ───────────────────────────────────
+  const stagedList = Object.values(repairState.staged);
+  const stagedKeys: ReadonlySet<string> = new Set(
+    stagedList.map((e) => `${e.row}:${e.col}`),
+  );
+  const approvedKeys: ReadonlySet<string> = new Set(
+    approvedEdits(repairState).map((e) => `${e.row}:${e.col}`),
+  );
+  const suggestionTotal = activeSummary?.suggestions.total ?? 0;
+  const suggestionVersion = activeSummary?.appliedEditCount ?? 0;
 
   return (
     <div data-testid="import-details" className="neo-panel flex flex-col overflow-hidden bg-card">
@@ -303,6 +579,46 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
 
       {/* ── Settings controls: Encoding, Delimiter, Header ────────────── */}
       <div className="space-y-4 border-t border-black bg-card px-5 py-4 sm:px-6">
+        {pendingDiscard && (
+          <div
+            role="alert"
+            data-testid="repair-discard-warning"
+            className="neo-control rounded-sm border-2 border-black bg-yellow p-3"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 size-5 shrink-0 text-red-700" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-charcoal">
+                  {t('repairDiscardWarningTitle')}
+                </p>
+                <p className="mt-1 text-xs text-charcoal">
+                  {t('repairDiscardWarningBody', { count: totalRepairCount })}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={confirmDiscard}
+                    data-testid="repair-discard-confirm"
+                    className="min-h-9"
+                  >
+                    {t('repairDiscardConfirm')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={cancelDiscard}
+                    data-testid="repair-discard-cancel"
+                    className="min-h-9"
+                  >
+                    {t('repairDiscardCancel')}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <EncodingSelector
           value={encoding}
           hadBom={hadBom}
@@ -444,17 +760,108 @@ export function ImportDetails({ file, onClear, headingRef }: ImportDetailsProps)
             {/* 1. Risk Summary Strip */}
             <RiskSummary summary={parseState.summary} />
 
-            {/* 2. Interactive Data Preview Table with Column Type Selectors */}
+            {/* 2. Interactive Data Preview Table with Column Type Selectors.
+                Leads the review journey; repairs follow with full context. */}
             <DataPreviewTable
               summary={parseState.summary}
               columnTypes={columnTypes}
               onColumnTypeChange={handleColumnTypeChange}
+              onConfirmEdit={handleManualEdit}
+              approvedCells={approvedKeys}
+              stagedCells={stagedKeys}
             />
 
-            {/* 3. Parse Metadata Statistics */}
+            {/* 3. Phase 6: Repair workflow (explicit confirmed diffs only).
+                Collapsed by default: optional repairs never push the data
+                or the export action out of view (docs/05 §2 Step D2). */}
+            <section
+              aria-label={t('repairTitle')}
+              data-testid="repair-panel"
+              className="space-y-3 rounded-sm border-2 border-black bg-white p-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-charcoal">{t('repairTitle')}</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t('repairSubtitle')}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setRepairOpen((open) => !open)}
+                  aria-expanded={repairOpen}
+                  aria-controls="repair-panel-body"
+                  data-testid="repair-toggle"
+                  className="min-h-11 shrink-0"
+                >
+                  {repairOpen
+                    ? t('repairHideList')
+                    : t('repairOpenList', { count: suggestionTotal })}
+                </Button>
+              </div>
+
+              <div id="repair-panel-body" hidden={!repairOpen} className="space-y-3">
+                <RepairHistory
+                  confirmedTransactions={confirmedCount(repairState)}
+                  canUndo={repairState.history.approved.length > 0}
+                  canRedo={repairState.history.redo.length > 0}
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  disabled={editsPending}
+                  liveMessage={repairLive}
+                />
+
+                {repairError && (
+                  <p
+                    role="alert"
+                    data-testid="repair-error"
+                    className="flex items-start gap-2 rounded-sm border border-black bg-yellow/40 p-2 text-xs font-bold text-charcoal"
+                  >
+                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-700" aria-hidden="true" />
+                    {repairError}
+                  </p>
+                )}
+
+                {repairFull && (
+                  <p
+                    role="alert"
+                    data-testid="repair-history-full"
+                    className="rounded-sm border border-black bg-yellow/40 p-2 text-xs font-bold text-charcoal"
+                  >
+                    {t('repairHistoryFull')}
+                  </p>
+                )}
+
+                <RepairStagedPreview
+                  staged={stagedList}
+                  onConfirm={handleConfirmStaged}
+                  onClear={handleClearStaged}
+                  onUnstage={(edit) => handleUnstageCell(edit.row, edit.col)}
+                  disabled={editsPending || repairFull}
+                />
+
+                <RepairSuggestions
+                  suggestions={pagedSuggestions}
+                  total={suggestionTotal}
+                  page={suggestionPage}
+                  version={suggestionVersion}
+                  isLoadingPage={suggestionsLoading}
+                  rejected={repairState.rejected}
+                  stagedKeys={stagedKeys}
+                  onStage={handleStageSuggestion}
+                  onUnstage={handleUnstageCell}
+                  onReject={(s) => handleRejectSuggestion(s.id)}
+                  onPageChange={setSuggestionPage}
+                  disabled={editsPending || repairFull}
+                />
+              </div>
+            </section>
+
+            {/* 4. Parse Metadata Statistics */}
             <ParseResultSummary summary={parseState.summary} />
 
-            {/* 4. Safe Excel Action Area with Verification and Download */}
+            {/* 5. Safe Excel Action Area with Verification and Download */}
             <DownloadAction
               onExport={handleExport}
               onDownload={handleDownload}

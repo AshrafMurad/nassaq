@@ -74,6 +74,21 @@ retain system fallback, and filenames remain escaped and direction-isolated.
 - Workflow remains an ordered list with visible numbered markers. Its numbers
   convey real sequence. All substantive copy is maintained in AR/EN resources.
 
+## Review workspace extension
+
+The Phase 6 review state keeps the initial upload, explanation and privacy
+panels compact, but expands the selected-file workspace to 72rem on desktop.
+The data preview leads the review journey, uses the available width, grows to
+600px tall and keeps row/column headers sticky inside its own scroll region.
+Mobile remains stacked with horizontal table scrolling and no page overflow.
+
+Optional repair suggestions appear after the preview and stay collapsed by
+default. Opening the panel shows ten worker-backed suggestions per page with
+explicit Previous/Next controls, visible whitespace markers in diffs and
+distinct staged vs confirmed badges. Multiline cell editing preserves line
+breaks; small visual icon controls retain 44px hit areas. Confirming, undoing
+or redoing an edit invalidates any older verified workbook immediately.
+
 ## Verification boundary
 
 Automated browser checks cover selection/reset focus, AR/EN direction, native

@@ -35,9 +35,11 @@ flowchart TD
 - “Columns separated by” select (Comma, Semicolon, Tab, Pipe) and “Not sure? Compare the preview.” Ambiguous cases require choice/confirmation before export.
 - Toggle “First row contains column names” default **on**. This affects label/cap only; it does not delete or transform first row.
 
-**Step C — preview:** Horizontally scrollable table with column letters and exact user content (first 20 records maximum), row numbers, safe escaped text, visible indication when text includes line breaks or surrounding spaces. Clip visually **without** clipping stored data; keyboard accessible scroll. Show “Showing first 20 of N records” when needed. For very long cells, expandable/copy-only affordance only if safe; no `dangerouslySetInnerHTML`.
+**Step C — preview:** Horizontally scrollable table with column letters and exact user content (first 20 records maximum), row numbers, safe escaped text, visible indication when text includes line breaks or surrounding spaces. Clip visually **without** clipping stored data; keyboard accessible scroll. Show “Showing first 20 of N records” when needed. On desktop the review workspace expands to approximately 1,152px, the preview may grow to 600px tall, and column/row headers remain sticky inside its own scroll region; initial upload, workflow and privacy panels remain compact. For very long cells, expandable/copy-only affordance only if safe; no `dangerouslySetInnerHTML`.
 
 **Step D — review:** One summary strip, e.g. “3 values worth checking — all will remain text unless you change a column.” Group risk counts by category. Link focus to relevant table cell; tooltip explains danger without revealing entire private value in notifications/logs. Per-column dropdowns default **Keep as text (recommended)**; optional **Convert to number** triggers all-row validation and clear disclaimer. No Date type in MVP. A conversion that would lose zeros is blocked and shows first offending **row positions**. For an all-text safe export, warnings remain informational and need no checkboxes per cell.
+
+**Step D2 — repair (Phase 6):** Optional, always user-driven, and placed **after the data preview** so suggestions have row/column context. The panel is collapsed initially; its summary reports the total suggestion count without delaying the ordinary preview→export path. Opening it shows 10 worker-backed suggestions per page with Previous/Next controls and an explicit “X–Y of Z” range; do not use an ever-growing “Load more” list. Each proposal includes a localized category, row + column, original/proposed values with visible surrounding-whitespace markers and bidi isolation, and a safe/ambiguous badge (icon + text, never color alone). **Stage** toggles to **Remove from review**; **Reject** also withdraws that proposal if staged. Staged diffs appear in a separate preview with an affected-cell count and one bulk **Confirm apply**. Cells in the data preview are individually editable through a multiline control that preserves line breaks; per-cell Confirm creates only that edit’s transaction and never applies unrelated staged proposals. **Undo/Redo** revert confirmed transactions; buttons disable appropriately and announce via `aria-live="polite"`. Nothing changes until explicit confirmation. Any confirmed edit/undo/redo immediately invalidates previously verified workbook bytes; export must be regenerated and verified against the new effective table. Changing encoding/delimiter/header with confirmed edits present must warn (“your N confirmed edit(s) will be discarded”) and require explicit continuation before re-parsing.
 
 **Step E — create and download:** Primary `Create safe Excel`; inline phase statuses “Reading”, “Checking data”, “Building Excel”, “Verifying cells”. Never use fake percentage values. On success show `Verified: N rows, M columns`, text/number totals, and `Download XLSX` button. On error, disable download; allow settings correction or new file.
 
@@ -54,6 +56,9 @@ flowchart TD
 | `DataPreviewTable` | Up to 20 parsed rows, row/column headers, safe text, horizontal scroll |
 | `RiskSummary` | Count + detail list with severity and explanatory language |
 | `ColumnTypeSelector` | Text/Number, accessible names, full-column gate output |
+| `RepairSuggestions` (Phase 6) | Collapsed-after-preview optional panel; localized 10-item worker-backed pages with row/column refs, classification badge, whitespace-visible original vs proposed values, Stage/Unstage/Reject; bulk "apply staged" with affected-cell count |
+| `EditCellControl` (Phase 6) | Per-cell multiline edit affordance in preview: preserves line breaks, immediate re-validation feedback (caps/bounds), explicit Confirm/Cancel; confirms only that cell and returns focus to it after apply |
+| `RepairHistory` (Phase 6) | Undo/Redo controls with disabled states; applied-edit count; discard warning before a re-parse that would drop diffs |
 | `ProcessStatus` | Pending/current/completed stage, aria-live polite |
 | `ValidationResult` | Exact summary, verification status, blocking reason |
 | `DownloadAction` | Enabled only after verified worker response |
@@ -95,6 +100,16 @@ On encoding/delimiter/header/type change: invalidate previous XLSX immediately; 
 | verify | جارٍ التأكد من حفظ جميع القيم | Verifying that values were preserved |
 | download | تنزيل ملف XLSX | Download XLSX |
 | new | اختر ملفًا آخر | Choose another file |
+| repairTitle | إصلاح القيم (اختياري، بموافقتك) | Repair values (optional, your choice) |
+| repairSuggestionSafe | إصلاح ميكانيكي آمن | Safe mechanical fix |
+| repairSuggestionAmbiguous | يحتاج تقديرك | Needs your judgment |
+| repairApply | اعتماد | Stage |
+| repairReject | تجاهل | Reject |
+| repairConfirmAll | تأكيد التعديلات المرحّلة | Confirm staged edits |
+| repairUndo | تراجع | Undo |
+| repairRedo | إعادة | Redo |
+| repairAffected | سيتم تعديل {{count}} خلية | {{count}} cell(s) will change |
+| repairDiscardWarning | سيتم تجاهل {{count}} تعديل مؤكد عند إعادة القراءة | Re-parsing will discard {{count}} confirmed edit(s) |
 | badEncode | تعذّر قراءة النص. جرّب طريقة قراءة أخرى. | We couldn't read this text. Try another encoding. |
 | noData | لا توجد صفوف بيانات قابلة للتحويل. | There are no data rows to convert. |
 | tooLarge | الملف أكبر من الحد المسموح (2 ميجابايت). | File exceeds the 2 MiB limit. |
@@ -115,6 +130,7 @@ Actual strings should be kept in `ar` and `en` resource files; translators must 
 - WCAG 2.2 AA aspirational baseline; validate essential flow with keyboard only and screen reader (NVDA/VoiceOver smoke).
 - Use real `<label>` or `aria-labelledby`, not placeholder-only labels. File drop zone has standard input alternative. Visible focus, Enter/Space activation.
 - Use `aria-live="polite"` for asynchronous phase completion and summary. For blocking errors, focus error heading and associate with affected selector; never trap focus in nonmodal alerts.
+- **Repair flow (Phase 6):** after applying/undoing an edit, return focus to the affected cell's control; announce applied/undone/redone state politely. Suggestion severity and safe/ambiguous classification use icon + text label, never color alone. Editable cells expose labelled inputs (`aria-label` with row/column context); validation errors are announced with `role="alert"` and identify the cell position.
 - Preview uses semantic `<table>`, `<thead>`, `<th scope="col">`, row headings and caption. Scroll area clearly focusable. No spreadsheet keyboard editor requirement.
 - Error/warning icons accompanied by text. Long names truncate visually with full tooltip; do not lose full name from accessibility tree.
 - Desktop ≥1024px: two-column settings and preview only if useful. Tablet/small viewport: stack everything, scroll preview, full-width main CTA. Phone devices may hit memory constraints; explain size cap and avoid making desktop assumptions in markup.

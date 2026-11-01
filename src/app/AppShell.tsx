@@ -69,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {t('skipToContent')}
       </a>
       <header className="fixed inset-x-0 top-0 z-40 h-20 border-b-2 border-black bg-yellow">
-        <div className="mx-auto flex h-full w-full max-w-4xl items-center justify-between gap-3 px-5 sm:px-8">
+        <div className="mx-auto flex h-full w-full max-w-4xl lg:max-w-6xl items-center justify-between gap-3 px-5 sm:px-8">
           <span className="flex items-center gap-2">
             <svg
               viewBox="0 0 64 64"
@@ -108,12 +108,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main
         id="main-content"
         tabIndex={-1}
-        className="mx-auto w-full max-w-4xl flex-1 px-5 py-10 outline-none sm:px-8 sm:py-14"
+        className="mx-auto w-full max-w-4xl lg:max-w-6xl flex-1 px-5 py-10 outline-none sm:px-8 sm:py-14"
       >
         {children}
       </main>
       <footer className="border-t-2 border-black bg-charcoal text-sage">
-        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-4 px-5 py-6 text-sm sm:px-8">
+        <div className="mx-auto flex w-full max-w-4xl lg:max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-6 text-sm sm:px-8">
           <button
             type="button"
             onClick={() => setPrivacyOpen(true)}

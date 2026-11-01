@@ -6,6 +6,8 @@
 
 import type { RiskCategory } from './risks';
 import type { ExportManifest } from './export-manifest';
+import type { CellEdit } from './repairs';
+import type { SuggestionItem, SuggestionSet } from './suggestions';
 
 // ---------------------------------------------------------------------------
 // Supported encoding identifiers
@@ -52,10 +54,41 @@ export interface WorkerRequestExport {
   firstRowIsHeader: boolean;
 }
 
+/**
+ * Phase 6: replace the approved diff list for the active job.
+ * The UI always sends the COMPLETE desired diff list (not a delta); the
+ * worker rebuilds the effective table as original records + diffs, re-runs
+ * risk/suggestion/numeric analysis, and answers EDITS_APPLIED. Any diff that
+ * fails validation (stale original, out of bounds, over cap) fails closed.
+ */
+export interface WorkerRequestApplyEdits {
+  type: 'APPLY_EDITS';
+  jobId: string;
+  /** Complete approved diff list in confirmation order. */
+  edits: CellEdit[];
+}
+
+/**
+ * Phase 6 follow-up: request one bounded page of suggestions over the
+ * current effective table. The READY/EDITS_APPLIED summary stays bounded
+ * to its first 50 items (docs/04 §5a); this message serves arbitrary
+ * further pages without ever transferring the whole list at once.
+ */
+export interface WorkerRequestGetSuggestions {
+  type: 'GET_SUGGESTIONS';
+  jobId: string;
+  /** 0-based index into the full suggestion list. */
+  offset: number;
+  /** Page size (bounded by the caller). */
+  limit: number;
+}
+
 export type WorkerRequest =
   | WorkerRequestParse
   | WorkerRequestCancel
-  | WorkerRequestExport;
+  | WorkerRequestExport
+  | WorkerRequestApplyEdits
+  | WorkerRequestGetSuggestions;
 
 // ---------------------------------------------------------------------------
 // Messages sent FROM the worker TO the main thread
@@ -153,6 +186,10 @@ export interface ParseSummary {
   riskSummary: Record<RiskCategory, number>;
   /** Total number of cell risk flags detected. */
   totalRisks: number;
+  /** Phase 6: bounded suggestion list + total count over the effective table. */
+  suggestions: SuggestionSet;
+  /** Phase 6: number of currently approved cell edits (dirty cells may differ). */
+  appliedEditCount: number;
 }
 
 /** Parse completed successfully. */
@@ -170,6 +207,35 @@ export interface WorkerMsgExportReady {
   manifest: ExportManifest;
 }
 
+/**
+ * Phase 6: the submitted approved diff list was validated and applied.
+ * The fresh summary describes the EFFECTIVE table (original + diffs):
+ * preview rows, risk counts, numeric eligibility and suggestions.
+ */
+export interface WorkerMsgEditsApplied {
+  type: 'EDITS_APPLIED';
+  jobId: string;
+  /** Number of edits accepted in this sync (equal to edits.length). */
+  appliedCount: number;
+  summary: ParseSummary;
+}
+
+/**
+ * Phase 6 follow-up: one bounded page of suggestions over the effective
+ * table, plus the full total so the UI can paginate without holding the
+ * complete list in memory.
+ */
+export interface WorkerMsgSuggestionsReady {
+  type: 'SUGGESTIONS_READY';
+  jobId: string;
+  items: SuggestionItem[];
+  /** Total suggestions across the whole effective table. */
+  total: number;
+  /** Echoed request window. */
+  offset: number;
+  limit: number;
+}
+
 /** Stable error codes for the import pipeline. */
 export type ImportErrorCode =
   | 'DECODE_FAILED'
@@ -184,7 +250,9 @@ export type ImportErrorCode =
   | 'ZERO_COLUMNS'
   | 'NO_DATA_ROWS'
   | 'EXPORT_FAILED'
-  | 'VERIFY_FAILED';
+  | 'VERIFY_FAILED'
+  | 'EDIT_CONFLICT'
+  | 'EDIT_INVALID';
 
 export interface WorkerMsgError {
   type: 'ERROR';
@@ -200,4 +268,6 @@ export type WorkerMessage =
   | WorkerMsgDelimiterReview
   | WorkerMsgReady
   | WorkerMsgExportReady
+  | WorkerMsgEditsApplied
+  | WorkerMsgSuggestionsReady
   | WorkerMsgError;
